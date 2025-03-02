@@ -163,7 +163,7 @@ document.addEventListener('DOMContentLoaded', function() {
 function loadData() {
   console.log("Loading data files"); // Debug logging
   
-  d3.csv("cases.txt", d3.autoType).then(function(cases) {
+  d3.csv("data/cases.txt", d3.autoType).then(function(cases) {
     console.log("Cases data loaded:", cases.length, "records"); // Debug logging
     casesData = cases;
     // Populate case selector
@@ -187,21 +187,21 @@ function loadData() {
       updateCase(cases[0].caseid);
     }
   }).catch(error => {
-    console.error("Error loading cases.txt:", error);
+    console.error("Error loading data/cases.txt:", error);
   });
   
-  d3.csv("labs.txt", d3.autoType).then(function(labs) {
+  d3.csv("data/labs.txt", d3.autoType).then(function(labs) {
     console.log("Labs data loaded:", labs.length, "records"); // Debug logging
     labsData = labs;
   }).catch(error => {
-    console.error("Error loading labs.txt:", error);
+    console.error("Error loading data/labs.txt:", error);
   });
   
-  d3.csv("trks.txt", d3.autoType).then(function(trks) {
+  d3.csv("data/trks.txt", d3.autoType).then(function(trks) {
     console.log("Tracks data loaded:", trks.length, "records"); // Debug logging
     trksData = trks;
   }).catch(error => {
-    console.error("Error loading trks.txt:", error);
+    console.error("Error loading data/trks.txt:", error);
   });
 }
 
