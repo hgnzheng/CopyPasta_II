@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Surgery’s Pulse Dashboard</title>
-  <link rel="stylesheet" type="text/css" href="style.css">
+  <link rel="stylesheet" type="text/css" href="style.css" />
   <!-- Load D3.js -->
   <script src="https://d3js.org/d3.v7.min.js"></script>
 </head>
@@ -35,7 +35,7 @@
       <button id="pause">Pause</button>
       <button id="fastForward">Fast Forward</button>
       <label for="scrubber">Scrub:</label>
-      <input type="range" id="scrubber" min="0" max="100" value="0" step="1">
+      <input type="range" id="scrubber" min="0" max="100" value="0" step="1" />
       <label for="speed">Speed:</label>
       <select id="speed">
         <option value="0.5">0.5x</option>
@@ -44,7 +44,15 @@
       </select>
     </div>
   </div>
+
+  <!-- Mini Overview Timeline container -->
+  <div id="overview">
+    <!-- Clear brush button on the right side -->
+    <button id="clearBrush" style="float:right; margin-right:20px;">Clear Brush</button>
+  </div>
   
+  <!-- JS scripts -->
   <script src="dashboard.js"></script>
+  <script src="overviewTimeline.js"></script>
 </body>
 </html>

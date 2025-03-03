@@ -3,14 +3,14 @@ const margin = { top: 20, right: 30, bottom: 50, left: 50 },
       width = 800 - margin.left - margin.right,
       height = 400 - margin.top - margin.bottom;
 
-// Global playback variables (for the current track/chart)
+// Global playback variables
 let currentTime = 0;
 let playing = false;
 let playbackSpeed = 1;
 let timer = null;
 
 // Global variables to hold current chart elements
-let currentXScale, currentTimeMarker, currentAnnotationGroup, currentXDomain;
+let currentXScale, currentYScale, currentTimeMarker, currentAnnotationGroup, currentXDomain;
 
 // Global data holders for external files
 let casesData, labsData, trksData;
@@ -270,115 +270,108 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 });
 
-// --- Update Chart Function --- //
+// Update Chart
 function updateChart(tid) {
-  console.log("Updating chart for track:", tid); // Debug logging
-  
-  // Clear any previous chart and stop any ongoing playback
-  if (playing) {
-    pausePlayback();
-  }
-  
-  // Reset currentTime to ensure proper playback from the beginning
+  console.log("Updating chart for track:", tid);
+  if (playing) pausePlayback();
   currentTime = 0;
-  
+
   d3.select("#chart").select("svg").remove();
-  
-  // Create a new SVG for the chart
+
   const svgChart = d3.select("#chart")
     .append("svg")
     .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
-    .append("g")
+    .attr("height", height + margin.top + margin.bottom);
+
+  const chartG = svgChart.append("g")
     .attr("transform", `translate(${margin.left}, ${margin.top})`);
-  
-  // Create new scales for the current chart
+
   const xNew = d3.scaleLinear().range([0, width]);
   const yNew = d3.scaleLinear().range([height, 0]);
-  
-  // Load track data from the VitalDB API
+
   const trackURL = "https://api.vitaldb.net/" + tid;
-  console.log("Loading track data from:", trackURL); // Debug logging
-  
+  console.log("Loading track data from:", trackURL);
+
   d3.csv(trackURL, d3.autoType).then(data => {
-    console.log("Track data loaded:", data.length, "points"); // Debug logging
-    
-    // Ensure data is properly processed
+    console.log("Track data loaded:", data.length, "points");
     data.forEach(d => {
-      d.time = +d.Time; // ensure numeric type for time
+      d.time = +d.Time;
       let keys = Object.keys(d);
       let valueKey = keys.find(key => key !== "Time");
       d.value = +d[valueKey];
     });
-    
-    // Sort data by time to ensure proper playback
     data.sort((a, b) => a.time - b.time);
-    
-    // Set the domains based on the loaded data
+
+    window.currentTrackData = data; // expose globally
+
     const timeExtent = d3.extent(data, d => d.time);
     xNew.domain(timeExtent);
     const yExtent = d3.extent(data, d => d.value);
     yNew.domain([yExtent[0] - 10, yExtent[1] + 10]);
-    
-    console.log("Time domain:", timeExtent, "Value domain:", yExtent); // Debug logging
-    
-    // Append axes to the chart
-    svgChart.append("g")
+
+    currentXScale = xNew;
+    currentYScale = yNew;
+    currentXDomain = timeExtent;
+
+    // X-axis
+    chartG.append("g")
+      .attr("class", "x-axis")
       .attr("transform", `translate(0, ${height})`)
       .call(d3.axisBottom(xNew));
-    svgChart.append("g")
-      .call(d3.axisLeft(yNew));
     
-    // Draw the time-series line
+    // Y-axis
+    chartG.append("g")
+      .attr("class", "y-axis")
+      .call(d3.axisLeft(yNew));
+
+    // Main line
     const line = d3.line()
       .x(d => xNew(d.time))
       .y(d => yNew(d.value));
-    svgChart.append("path")
+
+    chartG.append("path")
       .datum(data)
       .attr("class", "line")
       .attr("fill", "none")
       .attr("stroke", "steelblue")
       .attr("stroke-width", 2)
       .attr("d", line);
-    
-    // Add a vertical time marker for playback
-    const timeMarkerNew = svgChart.append("line")
+
+    // Time marker
+    const timeMarkerNew = chartG.append("line")
       .attr("class", "time-marker")
       .attr("stroke", "black")
       .attr("stroke-width", 2)
       .attr("y1", 0)
       .attr("y2", height)
-      .attr("x1", xNew(timeExtent[0]))  // Initially at start
-      .attr("x2", xNew(timeExtent[0])); // Initially at start
-    
-    // Add a group for dynamic annotations
-    const annotationGroupNew = svgChart.append("g")
-      .attr("class", "annotations");
-    
-    // Sample annotations for demonstration
+      .attr("x1", xNew(timeExtent[0]))
+      .attr("x2", xNew(timeExtent[0]));
+
+    // Annotations
+    const annotationGroupNew = chartG.append("g").attr("class", "annotations");
+    // sample events
     const annotations = [
-      { 
-        time: timeExtent[0] + (timeExtent[1] - timeExtent[0]) * 0.2, 
-        label: "Phase Transition", 
-        type: "phase", 
+      {
+        time: timeExtent[0] + (timeExtent[1]-timeExtent[0])*0.2,
+        label: "Phase Transition",
+        type: "phase",
         baseColor: "orange"
       },
-      { 
-        time: timeExtent[0] + (timeExtent[1] - timeExtent[0]) * 0.5, 
-        label: "Intervention", 
-        type: "intervention", 
+      {
+        time: timeExtent[0] + (timeExtent[1]-timeExtent[0])*0.5,
+        label: "Intervention",
+        type: "intervention",
         baseColor: "purple"
       },
-      { 
-        time: timeExtent[0] + (timeExtent[1] - timeExtent[0]) * 0.8, 
-        label: "Critical Event", 
-        type: "critical", 
+      {
+        time: timeExtent[0] + (timeExtent[1]-timeExtent[0])*0.8,
+        label: "Critical Event",
+        type: "critical",
         baseColor: "red"
       }
     ];
-    
-    // Add circles for annotations
-    const annotationCircles = annotationGroupNew.selectAll("circle")
+
+    annotationGroupNew.selectAll("circle")
       .data(annotations)
       .enter()
       .append("circle")
@@ -390,7 +383,7 @@ function updateChart(tid) {
       .attr("cx", d => xNew(d.time))
       .attr("cy", d => yNew(getValueAtTime(d.time, data)))
       .attr("r", 5)
-      .attr("baseColor", d => d.baseColor) // store base color for dynamic update
+      .attr("baseColor", d => d.baseColor)
       .on("mouseover", function(event, d) {
         d3.select(this).transition().duration(100).attr("r", 8);
         tooltip.transition().duration(50).style("opacity", 0.9);
@@ -403,42 +396,39 @@ function updateChart(tid) {
         tooltip.transition().duration(100).style("opacity", 0);
       })
       .on("click", function(event, d) {
-        // Jump to this annotation's time
         if (playing) pausePlayback();
         currentTime = d.time;
         updatePlayback();
       });
     
-    // Add text labels next to each annotation circle
     annotationGroupNew.selectAll("text")
       .data(annotations)
       .enter()
       .append("text")
-      .attr("x", d => xNew(d.time) + 10)  // offset to the right
-      .attr("y", d => yNew(getValueAtTime(d.time, data)) - 5) // slightly above
+      .attr("x", d => xNew(d.time) + 10)
+      .attr("y", d => yNew(getValueAtTime(d.time, data)) - 5)
       .text(d => d.label)
       .attr("fill", "#333");
-    
-    // Reset playback variables for the new chart
+
     currentTime = timeExtent[0];
-    
-    // Update global chart elements so that playback controls affect the current chart
-    currentXScale = xNew;
-    currentXDomain = timeExtent;
     currentTimeMarker = timeMarkerNew;
     currentAnnotationGroup = annotationGroupNew;
-    
-    // Update scrub slider to match the new time domain
+
     d3.select("#scrubber")
       .attr("min", currentXDomain[0])
       .attr("max", currentXDomain[1])
       .property("value", currentTime);
-    
-    // Initial update
+
     updatePlayback();
-    
-    console.log("Chart setup complete, ready for playback"); // Debug logging
-  }).catch(error => {
+
+    console.log("Chart setup complete, ready for playback");
+
+    if (window.redrawOverview) {
+      window.currentAnnotations = annotations;
+      window.redrawOverview();
+    }
+  })
+  .catch(error => {
     console.error("Error loading track data:", error);
     d3.select("#chart").html(`<p>Error loading track data: ${error.message}</p>`);
   });
@@ -457,4 +447,47 @@ function getValueAtTime(t, data) {
         d1 = data[index],
         ratio = (t - d0.time) / (d1.time - d0.time);
   return d0.value + ratio * (d1.value - d0.value);
+}
+
+function setMainChartDomain(timeRange) {
+  if (!currentXScale || !currentYScale || !window.currentTrackData) {
+    return;
+  }
+  currentXScale.domain(timeRange);
+
+  // x-axis
+  d3.select("#chart").select(".x-axis")
+    .transition().duration(500)
+    .call(d3.axisBottom(currentXScale));
+  
+  // line
+  d3.select("#chart").select("path.line")
+    .datum(window.currentTrackData)
+    .transition().duration(500)
+    .attr("d", d3.line()
+      .x(d => currentXScale(d.time))
+      .y(d => currentYScale(d.value))
+    );
+  
+  // annotations
+  if (currentAnnotationGroup) {
+    currentAnnotationGroup.selectAll("circle")
+      .transition().duration(500)
+      .attr("cx", d => currentXScale(d.time))
+      .attr("cy", d => currentYScale(getValueAtTime(d.time, window.currentTrackData)));
+
+    currentAnnotationGroup.selectAll("text")
+      .transition().duration(500)
+      .attr("x", d => currentXScale(d.time) + 10)
+      .attr("y", d => currentYScale(getValueAtTime(d.time, window.currentTrackData)) - 5);
+  }
+
+  // time marker
+  currentTime = Math.max(timeRange[0], Math.min(timeRange[1], currentTime));
+  if (currentTimeMarker) {
+    currentTimeMarker
+      .transition().duration(500)
+      .attr("x1", currentXScale(currentTime))
+      .attr("x2", currentXScale(currentTime));
+  }
 }
