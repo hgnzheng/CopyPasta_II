@@ -281,19 +281,20 @@ function updateCase(caseid) {
 
   // Toggle lab table visibility
   const labToggle = d3.select("#labToggle");
+  let labResults = d3.select("#labResults");
   labToggle.on("change", function () {
     if (this.checked) {
-      labTable.style("display", "table");
+      labResults.style("display", "table");
     } else {
-      labTable.style("display", "none");
+      labResults.style("display", "none");
     }
   });
 
   // Initialize lab table visibility based on toggle state
   if (labToggle.property("checked")) {
-    labTable.style("display", "table");
+    labResults.style("display", "table");
   } else {
-    labTable.style("display", "none");
+    labResults.style("display", "none");
   }
 
   // If tracks exist, update the chart with the first available track
