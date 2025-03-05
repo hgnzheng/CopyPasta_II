@@ -191,7 +191,14 @@ function loadData() {
       // Listen for case selection change
       caseSelector.on("change", function () {
         let selectedCaseId = +this.value;
+        // Show loading icon
+        d3.select("#loadingIcon").style("display", "block");
+
+        // Update case
         updateCase(selectedCaseId);
+
+        // Hide loading icon after update
+        d3.select("#loadingIcon").style("display", "none");
       });
 
       // Automatically select the first case if available
@@ -270,6 +277,23 @@ function updateCase(caseid) {
       .append("td")
       .attr("colspan", 3)
       .text("No lab results available.");
+  }
+
+  // Toggle lab table visibility
+  const labToggle = d3.select("#labToggle");
+  labToggle.on("change", function () {
+    if (this.checked) {
+      labTable.style("display", "table");
+    } else {
+      labTable.style("display", "none");
+    }
+  });
+
+  // Initialize lab table visibility based on toggle state
+  if (labToggle.property("checked")) {
+    labTable.style("display", "table");
+  } else {
+    labTable.style("display", "none");
   }
 
   // If tracks exist, update the chart with the first available track
