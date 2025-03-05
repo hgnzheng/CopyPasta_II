@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description"
+        content="Deformable Neural Radiance Fields creates free-viewpoint portraits (nerfies) from casually captured videos.">
+  <meta name="keywords" content="Nerfies, D-NeRF, NeRF">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Nerfies: Deformable Neural Radiance Fields</title>
+
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-PYVRSFMDRL"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+
+    function gtag() {
+      dataLayer.push(arguments);
+    }
+
+    gtag('js', new Date());
+
+    gtag('config', 'G-PYVRSFMDRL');
+  </script>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+        rel="stylesheet">
+
+  <link rel="stylesheet" href="https://nerfies.github.io/static/css/bulma.min.css">
+  <link rel="stylesheet" href="https://nerfies.github.io/static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="https://nerfies.github.io/static/css/bulma-slider.min.css">
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="https://nerfies.github.io/static/css/index.css">
+
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+</head>
+<body>
+
+
+
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-1 publication-title">Surgery's Pulse: Animated Biosensor Dashboard</h1>
+          <!-- TODO update link -->
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">
+              <a href="">Hargen Zheng</a><sup>1</sup>,</span>
+            <span class="author-block">
+              <a href="">Travis Wu</a><sup>1</sup>,</span>
+            <span class="author-block">
+              <a href="">Kaijie Zhang</a><sup>1</sup>,
+            </span>
+            <span class="author-block">
+                <a href="">Rihui Ling</a><sup>1</sup>,
+              </span>
+          </div>
+
+          <div class="is-size-5 publication-authors">
+            <span class="author-block"><sup>1</sup>University of San Diego,</span>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="hero teaser">
+  <div class="container is-max-desktop">
+    <div class="hero-body">
+      <h2 class="subtitle has-text-centered">
+        This is the final project for DSC106-WI25.
+      </h2>
+    </div>
+  </div>
+</section>
+
+
+<section class="hero is-light is-small">
+  <div class="hero-body">
+    <div class="container">
+      <div id="results-carousel" class="carousel results-carousel plot1">
+        
+        <!-- Top controls: case and track selection -->
+        <div id="controls-top">
+            <div class="caseSelector">
+            <label for="caseSelector">Select Case:</label>
+            <select id="caseSelector"></select>
+            </div>
+            <div class="trackSelector">
+            <label for="trackSelector">Select Track:</label>
+            <select id="trackSelector"></select>
+            </div>
+            <div class="labToggle">
+            <label for="labToggle">Show Table:</label>
+            <input type="checkbox" id="labToggle" />
+            </div>
+        </div>
+    
+        <!-- Lab results panel -->
+        <div id="labResults">
+            <h3>Lab Results</h3>
+            <table id="labTable"></table>
+        </div>
+    
+        <!-- Chart container and playback controls -->
+        <div id="chart-container">
+            <div id="chart"></div>
+            <div id="controls">
+            <button id="rewind">Rewind</button>
+            <button id="play">Play</button>
+            <button id="pause">Pause</button>
+            <button id="fastForward">Fast Forward</button>
+            <label for="scrubber">Scrub:</label>
+            <input
+                type="range"
+                id="scrubber"
+                min="0"
+                max="100"
+                value="0"
+                step="1"
+            />
+            <label for="speed">Speed:</label>
+            <select id="speed">
+                <option value="0.5">0.5x</option>
+                <option value="1" selected>1x</option>
+                <option value="2">2x</option>
+            </select>
+            <label for="toggleAverage">Show MA:</label>
+            <select id="MAdropdownMenu">
+                <option value="none">None</option>
+                <option value="1min">1 min</option>
+                <option value="5min">5 min</option>
+            </select>
+            </div>
+        </div>
+    
+        <!-- Mini Overview Timeline container -->
+        <div id="overview">
+            <!-- Clear brush button on the right side -->
+            <button id="clearBrush" style="float: right; margin-right: 20px">
+            Clear Brush
+            </button>
+        </div>
+    
+        <!-- JS scripts -->
+        <script src="./draft/dashboard.js"></script>
+        <script src="./draft/overviewTimeline.js"></script>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Write Up</h2>
+        <div class="content has-text-justified">
+          <h3>What Have You Done So Far?</h3>
+          <p>
+            We've built an animated time-series visualization that displays continuous biosensor data throughout the surgery timeline, 
+            complete with dynamic annotations marking key events. 
+            We implemented playback controls like play, pause, rewind, 
+            fast-forward, and manual scrubbing, giving users full control over the timeline. 
+            We also created a miniature overview timeline that synchronizes with the main display, 
+            allowing users to brush and zoom into specific segments. 
+            Additionally, we set up an automated anomaly detection system that overlays color-coded markers with interactive tooltips, 
+            along with a click-to-drill feature for deeper analysis.
+          </p>
+          <h3>What Will Be the Most Challenging Part of Your Project to Design and Why?</h3>
+          <p>
+            The toughest part will be ensuring seamless synchronization between all the interactive components. 
+            Keeping the animated time-series, overview timeline, dynamic annotations, 
+            and anomaly markers perfectly in sync while processing real-time data is a major challenge. 
+            Any lag or misalignment can disrupt the user experience and lead to inaccurate data interpretations during critical moments. 
+            Optimizing performance to handle rapid data updates and complex interactions without compromising responsiveness will require careful planning and extensive testing.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+</body>
+</html>
