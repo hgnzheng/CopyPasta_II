@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Surgery’s Pulse Dashboard</title>
+    <link rel="stylesheet" type="text/css" href="style.css" />
+    <!-- Load D3.js -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>Surgery’s Pulse: Animated Biosensor Dashboard</h1>
+    </header>
+
+    <!-- Top controls: case and track selection -->
+    <div id="controls-top">
+      <div class="caseSelector">
+        <label for="caseSelector">Select Case:</label>
+        <select id="caseSelector"></select>
+      </div>
+      <div class="trackSelector">
+        <label for="trackSelector">Select Track:</label>
+        <select id="trackSelector"></select>
+      </div>
+      <div class="labToggle">
+        <label for="labToggle">Show Table:</label>
+        <input type="checkbox" id="labToggle" />
+      </div>
+    </div>
+
+    <!-- Lab results panel -->
+    <div id="labResults">
+      <h3>Lab Results</h3>
+      <table id="labTable"></table>
+    </div>
+
+    <!-- Chart container and playback controls -->
+    <div id="chart-container">
+      <div id="chart"></div>
+      <div id="controls">
+        <button id="rewind">Rewind</button>
+        <button id="play">Play</button>
+        <button id="pause">Pause</button>
+        <button id="fastForward">Fast Forward</button>
+        <label for="scrubber">Scrub:</label>
+        <input
+          type="range"
+          id="scrubber"
+          min="0"
+          max="100"
+          value="0"
+          step="1"
+        />
+        <label for="speed">Speed:</label>
+        <select id="speed">
+          <option value="0.5">0.5x</option>
+          <option value="1" selected>1x</option>
+          <option value="2">2x</option>
+        </select>
+        <label for="toggleAverage">Show MA:</label>
+        <select id="MAdropdownMenu">
+          <option value="none">None</option>
+          <option value="1min">1 min</option>
+          <option value="5min">5 min</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Mini Overview Timeline container -->
+    <div id="overview">
+      <!-- Clear brush button on the right side -->
+      <button id="clearBrush" style="float: right; margin-right: 20px">
+        Clear Brush
+      </button>
+    </div>
+
+    <!-- JS scripts -->
+    <script src="dashboard.js"></script>
+    <script src="overviewTimeline.js"></script>
+  </body>
+</html>

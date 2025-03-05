@@ -20,7 +20,7 @@ let currentXScale,
 let casesData, labsData, trksData;
 
 // Append a tooltip (for interactive feedback)
-const tooltip = d3.select("body").append("div").attr("class", "tooltip");
+const tooltip = d3.select(".plot1").append("div").attr("class", "tooltip");
 
 // --- Global Playback Functions --- //
 
