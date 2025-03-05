@@ -20,7 +20,7 @@ let currentXScale,
 let casesData, labsData, trksData;
 
 // Append a tooltip (for interactive feedback)
-const tooltip = d3.select(".plot1").append("div").attr("class", "tooltip");
+const tooltip = d3.select("body").append("div").attr("class", "tooltip");
 
 // --- Global Playback Functions --- //
 
@@ -172,12 +172,22 @@ document.addEventListener("DOMContentLoaded", function () {
 
 // --- Load external data files --- //
 function loadData() {
-  console.log("Loading data files"); // Debug logging
+  console.log("Loading data files");
 
-  d3.csv("data/cases.txt", d3.autoType)
-    .then(function (cases) {
-      console.log("Cases data loaded:", cases.length, "records"); // Debug logging
+  Promise.all([
+    d3.csv("data/cases.txt", d3.autoType),
+    d3.csv("data/labs.txt", d3.autoType),
+    d3.csv("data/trks.txt", d3.autoType)
+  ])
+    .then(([cases, labs, trks]) => {
+      console.log("Cases data loaded:", cases.length, "records");
+      console.log("Labs data loaded:", labs.length, "records");
+      console.log("Tracks data loaded:", trks.length, "records");
+
       casesData = cases;
+      labsData = labs;
+      trksData = trks;
+
       // Populate case selector
       let caseSelector = d3.select("#caseSelector");
       caseSelector
@@ -201,32 +211,14 @@ function loadData() {
         d3.select("#loadingIcon").style("display", "none");
       });
 
-      // Automatically select the first case if available
-      if (cases.length > 0) {
-        caseSelector.property("value", cases[0].caseid);
-        updateCase(cases[0].caseid);
-      }
-    })
-    .catch((error) => {
-      console.error("Error loading data/cases.txt:", error);
-    });
+      // Select a default case that has track data if available, otherwise fall back to the first case.
+      let defaultCase = cases.find(c => trks.some(t => t.caseid === c.caseid)) || cases[0];
 
-  d3.csv("data/labs.txt", d3.autoType)
-    .then(function (labs) {
-      console.log("Labs data loaded:", labs.length, "records"); // Debug logging
-      labsData = labs;
+      caseSelector.property("value", defaultCase.caseid);
+      updateCase(defaultCase.caseid);
     })
     .catch((error) => {
-      console.error("Error loading data/labs.txt:", error);
-    });
-
-  d3.csv("data/trks.txt", d3.autoType)
-    .then(function (trks) {
-      console.log("Tracks data loaded:", trks.length, "records"); // Debug logging
-      trksData = trks;
-    })
-    .catch((error) => {
-      console.error("Error loading data/trks.txt:", error);
+      console.error("Error loading data files:", error);
     });
 }
 
@@ -445,13 +437,13 @@ function updateChart(tid) {
       const legend = svgChart.append("g").attr("class", "legend");
 
       legend
-      .append("rect")
-      .attr("x", width - 150)
-      .attr("y", 10)
-      .attr("width", 140)
-      .attr("height", 30)
-      .attr("fill", "white")
-      .attr("stroke", "black");
+        .append("rect")
+        .attr("x", width - 150)
+        .attr("y", 10)
+        .attr("width", 140)
+        .attr("height", 30)
+        .attr("fill", "white")
+        .attr("stroke", "black");
 
       legend
         .append("line")
@@ -469,38 +461,36 @@ function updateChart(tid) {
         .text("Raw")
         .attr("alignment-baseline", "middle");
 
-
-
       // Dropdown menu for toggles
 
       document
         .getElementById("MAdropdownMenu")
         .addEventListener("change", function () {
           // Lines
-            if (this.value === "1min") {
+          if (this.value === "1min") {
             d3.selectAll(".ma1min-line").style("display", null);
             d3.selectAll(".ma5min-line").style("display", "none");
             d3.selectAll(".line").style("opacity", 0.5);
-            } else if (this.value === "5min") {
+          } else if (this.value === "5min") {
             d3.selectAll(".ma1min-line").style("display", "none");
             d3.selectAll(".ma5min-line").style("display", null);
             d3.selectAll(".line").style("opacity", 0.5);
-            } else {
+          } else {
             d3.selectAll(".ma1min-line").style("display", "none");
             d3.selectAll(".ma5min-line").style("display", "none");
             d3.selectAll(".line").style("opacity", 1);
-            }
+          }
 
           // Legends
           legend.selectAll("*").remove();
 
-            let legendItems = [{ color: "steelblue", text: "Raw" }];
-            if (this.value === "1min") {
+          let legendItems = [{ color: "steelblue", text: "Raw" }];
+          if (this.value === "1min") {
             legendItems.push({ color: "orange", text: "MA1min" });
-            }
-            if (this.value === "5min") {
+          }
+          if (this.value === "5min") {
             legendItems.push({ color: "red", text: "MA5min" });
-            }
+          }
 
           legend
             .append("rect")
