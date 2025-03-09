@@ -68,6 +68,124 @@ const tooltip = d3.select("body")
 // Global variable to store the case hierarchy
 let caseHierarchy = null;
 
+// Toggle lab results visibility
+document
+  .getElementById("labToggle")
+  .addEventListener("change", function () {
+    document.getElementById("labResults").style.display = this
+      .checked
+      ? "block"
+      : "none";
+  });
+
+// Add event listener for case selector
+document
+  .getElementById("caseSelector")
+  .addEventListener("change", function () {
+    const caseId = this.value;
+    console.log(
+      "Case selector change event triggered with caseId:",
+      caseId
+    );
+
+    updateCaseWithDataAPI(caseId);
+    if (caseId) {
+      updateAnomaliesList(caseId); // New function to update anomalies sidebar
+    }
+  });
+
+// Listen for URL parameters on page load to handle returns from crisis view
+document.addEventListener('DOMContentLoaded', function() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const caseId = urlParams.get('caseId');
+  const time = urlParams.get('time');
+  
+  if (caseId) {
+    // If we have a caseId parameter, select that case
+    setTimeout(() => {
+      const caseSelect = document.getElementById('caseSelector');
+      if (caseSelect && caseSelect.options.length > 0) {
+        for (let i = 0; i < caseSelect.options.length; i++) {
+          if (caseSelect.options[i].value == caseId) {
+            caseSelect.selectedIndex = i;
+            caseSelect.dispatchEvent(new Event('change'));
+            break;
+          }
+        }
+      }
+      
+      // If we also have a time parameter, set the current time
+      if (time && typeof currentTime !== 'undefined') {
+        setTimeout(() => {
+          currentTime = parseFloat(time);
+          updatePlayback();
+          updateTimeDisplay(currentTime, getCurrentValue());
+        }, 500);
+      }
+    }, 500);
+  }
+});
+
+// ----------------------------------------------------------
+// 0) Basics
+// ----------------------------------------------------------
+
+// Function to update the anomalies list in the sidebar
+function updateAnomaliesList(caseId) {
+  // This would be populated with actual data in the real implementation
+  const dummyAnomalies = [
+    { time: "00:32:15", type: "Hypotension", severity: "Medium" },
+    { time: "01:15:45", type: "Tachycardia", severity: "High" },
+    { time: "02:05:10", type: "Oxygen Desaturation", severity: "Low" }
+  ];
+  
+  const anomaliesList = document.getElementById('anomalies-list');
+  anomaliesList.innerHTML = '';
+  
+  dummyAnomalies.forEach((anomaly, index) => {
+    const anomalyItem = document.createElement('div');
+    anomalyItem.className = 'box is-small mb-2';
+    anomalyItem.innerHTML = `
+      <p class="is-size-7 has-text-weight-bold">${anomaly.type} <span class="tag is-${getSeverityColor(anomaly.severity)}">${anomaly.severity}</span></p>
+      <p class="is-size-7">Time: ${anomaly.time}</p>
+      <a href="crisisAnalysis.html?caseId=${caseId}&time=${timeToSeconds(anomaly.time)}" class="button is-small is-outlined is-info mt-1">Analyze</a>
+    `;
+    anomaliesList.appendChild(anomalyItem);
+  });
+}
+  
+function getSeverityColor(severity) {
+  switch(severity.toLowerCase()) {
+    case 'low': return 'warning';
+    case 'medium': return 'info';
+    case 'high': return 'danger';
+    default: return 'info';
+  }
+}
+
+function timeToSeconds(timeStr) {
+  const [hours, minutes, seconds] = timeStr.split(':').map(Number);
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
+// Update current time display when playback updates
+function updateTimeDisplay(time, value) {
+  document.getElementById('current-time-display').textContent = formatTime(time);
+  document.getElementById('current-value-display').textContent = value ? value.toFixed(2) : '--';
+}
+
+function formatTime(seconds) {
+  const hrs = Math.floor(seconds / 3600);
+  const mins = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+// Dummy function to get current value - would be replaced with actual implementation
+function getCurrentValue() {
+  return Math.random() * 100;
+}
+              
 // ----------------------------------------------------------
 // 1) PLAYBACK CONTROLS
 // ----------------------------------------------------------
