@@ -86,7 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
         .map((track, index) => ({
           tid: track.tid,
           name: track.tname,
-          checked: index < 3, // Only first 3 checked by default
+          checked: index === 0, // Only the first signal checked by default
           color: colors[`signal${index + 1}`] || "#999"
         }));
 
@@ -96,14 +96,14 @@ document.addEventListener("DOMContentLoaded", () => {
     .catch((error) => {
       console.error("Error fetching track list:", error);
 
-      // Fallback example signals if the fetch fails
+      // Fallback example signals with simpler IDs that work better with demo data
       const fallbackSignals = [
-        { tid: "fd869e25ba82a66cc95b38ed47110bf4f14bb368", name: "BIS/BIS", checked: true, color: colors.signal1 },
-        { tid: "0aa685df768489a18a5e9f53af0d83bf60890c73", name: "BIS/EEG1_WAV", checked: true, color: colors.signal2 },
-        { tid: "ad13b2c39b19193c8ae4a2de4f8315f18d61a57e", name: "BIS/EEG2_WAV", checked: true, color: colors.signal3 },
-        { tid: "fd869e25ba82a66cc95b38ed47110bf4f14bb368", name: "HR/HR", checked: false, color: colors.signal4 },
-        { tid: "0aa685df768489a18a5e9f53af0d83bf60890c73", name: "BP/Systolic", checked: false, color: colors.signal5 },
-        { tid: "ad13b2c39b19193c8ae4a2de4f8315f18d61a57e", name: "BP/Diastolic", checked: false, color: colors.signal6 }
+        { tid: "signal1", name: "Heart Rate", checked: true, color: colors.signal1 },
+        { tid: "signal2", name: "Blood Pressure", checked: false, color: colors.signal2 },
+        { tid: "signal3", name: "Oxygen Saturation", checked: false, color: colors.signal3 },
+        { tid: "signal4", name: "Respiration Rate", checked: false, color: colors.signal4 },
+        { tid: "signal5", name: "Temperature", checked: false, color: colors.signal5 },
+        { tid: "signal6", name: "EEG", checked: false, color: colors.signal6 }
       ];
 
       selectedSignals = fallbackSignals.filter(s => s.checked);
@@ -118,6 +118,12 @@ document.addEventListener("DOMContentLoaded", () => {
 function createBiosignalCheckboxes(signals, startTime, endTime, centerTime) {
   const container = document.getElementById("signalCheckboxes");
   container.innerHTML = "";
+  
+  // Add a header to clarify purpose
+  const header = document.createElement("div");
+  header.className = "signal-header";
+  header.innerHTML = "Toggle biosignals to compare different measurements";
+  container.appendChild(header);
 
   signals.forEach((signal, index) => {
     const checkboxId = `signal-${index}`;
@@ -125,6 +131,11 @@ function createBiosignalCheckboxes(signals, startTime, endTime, centerTime) {
     // Create checkbox container
     const checkboxContainer = document.createElement("div");
     checkboxContainer.className = "signal-checkbox-container";
+    
+    // Highlight the container if selected
+    if (signal.checked) {
+      checkboxContainer.classList.add("selected");
+    }
     
     // Create checkbox
     const checkbox = document.createElement("input");
@@ -138,11 +149,23 @@ function createBiosignalCheckboxes(signals, startTime, endTime, centerTime) {
     colorSwatch.className = "color-swatch";
     colorSwatch.style.backgroundColor = signal.color;
     
-    // Create label with signal name
+    // Create label with signal name and improve formatting
     const label = document.createElement("label");
     label.htmlFor = checkboxId;
     label.className = "signal-label";
-    label.textContent = signal.name.split("/").pop(); // Just show the part after the last slash
+    
+    // Format signal name to be more readable
+    let displayName = signal.name;
+    if (displayName.includes("/")) {
+      const parts = displayName.split("/");
+      displayName = parts[parts.length - 1];
+      // Add the category as a prefix in smaller text if available
+      if (parts.length > 1 && parts[0]) {
+        displayName = `<span class="signal-category">${parts[0]}:</span> ${displayName}`;
+      }
+    }
+    
+    label.innerHTML = displayName;
     
     // Add elements to container
     checkboxContainer.appendChild(checkbox);
@@ -152,11 +175,13 @@ function createBiosignalCheckboxes(signals, startTime, endTime, centerTime) {
 
     // Set up event listener
     checkbox.addEventListener("change", function () {
-      // Update our selected signals array
+      // Update container highlighting
       if (this.checked) {
+        checkboxContainer.classList.add("selected");
         const selectedSignal = signals.find(s => s.tid === this.dataset.tid);
         selectedSignals.push(selectedSignal);
       } else {
+        checkboxContainer.classList.remove("selected");
         selectedSignals = selectedSignals.filter(s => s.tid !== this.dataset.tid);
       }
       
@@ -376,13 +401,34 @@ function refreshChart(startTime, endTime, centerTime) {
     }
   });
   
+  // Check if we have any valid values
+  if (allValues.length === 0) {
+    console.warn("No valid values found for Y-scale calculation, using defaults");
+    // Add some default values to prevent errors
+    allValues = [0, 10, 20, 30, 40, 50];
+  }
+  
   // Calculate extent of values with padding
   const valueExtent = d3.extent(allValues);
   const valuePadding = (valueExtent[1] - valueExtent[0]) * 0.1;
   
+  // Ensure we have a non-zero range to prevent flat lines
+  let yMin = valueExtent[0] - valuePadding;
+  let yMax = valueExtent[1] + valuePadding;
+  
+  // If range is too small, enforce a minimum range
+  const minRange = 10; // Minimum range to prevent flat lines
+  if (yMax - yMin < minRange) {
+    const center = (yMin + yMax) / 2;
+    yMin = center - minRange / 2;
+    yMax = center + minRange / 2;
+  }
+  
+  console.log(`Y scale range: ${yMin} to ${yMax}`);
+  
   // Create y scale
   detailedYScale = d3.scaleLinear()
-    .domain([valueExtent[0] - valuePadding, valueExtent[1] + valuePadding])
+    .domain([yMin, yMax])
     .range([height, 0])
     .nice();
   
@@ -446,13 +492,28 @@ function refreshChart(startTime, endTime, centerTime) {
   const line = d3.line()
     .x(d => detailedXScale(d.time))
     .y(d => detailedYScale(d.value))
+    .defined(d => !isNaN(d.value) && d.value !== null && d.value !== undefined)
     .curve(d3.curveMonotoneX);
   
   // Add lines for each selected signal
   selectedSignals.forEach(signal => {
-    if (loadedData[signal.tid]) {
+    if (loadedData[signal.tid] && loadedData[signal.tid].length > 0) {
+      // Log some diagnostic information
+      console.log(`Drawing signal ${signal.name} with ${loadedData[signal.tid].length} points`);
+      console.log(`First few values:`, loadedData[signal.tid].slice(0, 5).map(d => d.value));
+      
+      // Filter out invalid data points
+      const validData = loadedData[signal.tid].filter(d => 
+        !isNaN(d.value) && d.value !== null && d.value !== undefined
+      );
+      
+      if (validData.length === 0) {
+        console.warn(`No valid data points for signal ${signal.name}`);
+        return;
+      }
+      
       const path = chartArea.append("path")
-        .datum(loadedData[signal.tid])
+        .datum(validData)
         .attr("class", "signal-line")
         .attr("fill", "none")
         .attr("stroke", signal.color)
@@ -803,20 +864,44 @@ function initInterventionTree(centerTime) {
       .duration(200)
       .style("opacity", 0.9);
     
-    let html = `<strong>${d.data.name}</strong><br/>`;
+    // Create formatted HTML for the tooltip
+    let html = `<div class="tooltip-content">`;
+    html += `<div class="tooltip-header">${d.data.name}</div>`;
     
     if (d.data.type === "root") {
-      html += "Current crisis state";
+      html += `<div class="tooltip-text">Critical event detected at ${centerTime.toFixed(1)} seconds</div>`;
+      html += `<div class="tooltip-tip">Explore intervention options by selecting an event type below</div>`;
     } else if (d.data.type === "event") {
-      html += `Event Type: ${d.data.eventType}<br/>`;
-      html += "Select an intervention";
+      html += `<div class="tooltip-category">Event Type</div>`;
+      html += `<div class="tooltip-text">${d.data.eventType.charAt(0).toUpperCase() + d.data.eventType.slice(1)}</div>`;
+      html += `<div class="tooltip-tip">Select an intervention below to simulate outcomes</div>`;
     } else if (d.data.type === "intervention") {
-      html += `Success Probability: ${d.data.probability}%<br/>`;
-      html += `Strategy: ${d.data.strategy}<br/>`;
-      html += "Click to simulate";
+      html += `<div class="tooltip-category">Treatment Strategy</div>`;
+      html += `<div class="tooltip-text">${d.data.strategy}</div>`;
+      
+      html += `<div class="tooltip-category">Success Probability</div>`;
+      // Create visual probability indicator
+      const probWidth = Math.min(100, Math.max(0, d.data.probability));
+      const probColor = probWidth > 80 ? "#4CAF50" : probWidth > 60 ? "#FFC107" : "#F44336";
+      
+      html += `<div class="tooltip-prob-container">
+                <div class="tooltip-prob-value">${d.data.probability}%</div>
+                <div class="tooltip-prob-bar" style="width:100px">
+                  <div class="tooltip-prob-fill" style="width:${probWidth}px;background-color:${probColor}"></div>
+                </div>
+              </div>`;
+              
+      if (d.data.description) {
+        html += `<div class="tooltip-category">Description</div>`;
+        html += `<div class="tooltip-text">${d.data.description}</div>`;
+      }
+      
+      html += `<div class="tooltip-tip">Click to simulate this intervention</div>`;
     } else if (d.data.type === "outcome") {
-      html += d.data.description;
+      html += `<div class="tooltip-text">${d.data.description}</div>`;
     }
+    
+    html += `</div>`;
     
     tooltip.html(html)
       .style("left", (event.pageX + 10) + "px")
@@ -826,54 +911,180 @@ function initInterventionTree(centerTime) {
 
 // Generate tree data structure
 function generateTreeData(centerTime) {
-  // Create a tree structure for intervention decisions
-  return {
-    name: "Crisis at " + centerTime.toFixed(1) + "s",
-    type: "root",
-    children: [
-      {
-        name: "Hypotension",
-        type: "event",
-        eventType: "hypotension",
-        children: [
-          {
-            name: "Intervention A",
-            type: "intervention",
-            strategy: "Increase fluids",
-            probability: 75,
-            eventType: "hypotension"
-          },
-          {
-            name: "Intervention B",
-            type: "intervention",
-            strategy: "Vasopressors",
-            probability: 85,
-            eventType: "hypotension"
-          }
-        ]
-      },
-      {
-        name: "Bradycardia",
-        type: "event",
-        eventType: "bradycardia",
-        children: [
+  // Create case-specific and signal-specific success probabilities
+  const urlParams = new URLSearchParams(window.location.search);
+  const caseId = parseInt(urlParams.get("caseId")) || 1;
+  
+  // Generate probabilities that vary by case but are consistent for each case
+  const caseVariation = (caseId * 17) % 100 / 100; // 0-1 range
+  
+  // Determine signal type for better contextual interventions
+  let signalType = "unknown";
+  let eventTypes = ["hypotension", "bradycardia"]; // default events
+  
+  if (selectedSignals.length > 0) {
+    const signalName = selectedSignals[0].name.toLowerCase();
+    
+    if (signalName.includes("hr") || signalName.includes("heart")) {
+      signalType = "heartrate";
+      eventTypes = ["bradycardia", "tachycardia"];
+    } else if (signalName.includes("bp") || signalName.includes("press")) {
+      signalType = "bloodpressure";
+      eventTypes = ["hypotension", "hypertension"];
+    } else if (signalName.includes("o2") || signalName.includes("spo2") || signalName.includes("oxygen")) {
+      signalType = "oxygen";
+      eventTypes = ["hypoxemia", "desaturation"];
+    } else if (signalName.includes("temp")) {
+      signalType = "temperature";
+      eventTypes = ["hypothermia", "hyperthermia"];
+    } else if (signalName.includes("eeg") || signalName.includes("bis")) {
+      signalType = "eeg";
+      eventTypes = ["burst suppression", "awareness"];
+    } else if (signalName.includes("resp")) {
+      signalType = "respiration";
+      eventTypes = ["hypoventilation", "apnea"];
+    }
+  }
+  
+  // Generate intervention success rates that vary by case and signal type
+  const generateProbability = (baseProb, variation) => {
+    // Calculate the raw probability value
+    const rawValue = Math.round(baseProb + (variation - 0.5) * 30);
+    // Cap the probability at 100% and ensure it's not below 0%
+    return Math.min(100, Math.max(0, rawValue));
+  };
+  
+  // Generate different interventions based on event type
+  const getInterventionsForEvent = (eventType) => {
+    switch (eventType) {
+      case "bradycardia":
+        return [
           {
             name: "Intervention A",
             type: "intervention",
             strategy: "Atropine",
-            probability: 80,
-            eventType: "bradycardia"
+            probability: generateProbability(75, caseVariation),
+            eventType: eventType,
+            description: "Administer atropine to increase heart rate by blocking parasympathetic activity"
           },
           {
             name: "Intervention B",
             type: "intervention",
             strategy: "Pacing",
-            probability: 90,
-            eventType: "bradycardia"
+            probability: generateProbability(90, 1 - caseVariation),
+            eventType: eventType,
+            description: "Apply transcutaneous pacing to directly stimulate cardiac contractions" 
           }
-        ]
-      }
-    ]
+        ];
+      case "tachycardia":
+        return [
+          {
+            name: "Intervention A",
+            type: "intervention",
+            strategy: "Beta Blockers",
+            probability: generateProbability(82, caseVariation),
+            eventType: eventType,
+            description: "Administer beta blockers to slow heart rate by blocking sympathetic stimulation"
+          },
+          {
+            name: "Intervention B",
+            type: "intervention",
+            strategy: "Cardioversion",
+            probability: generateProbability(88, 1 - caseVariation),
+            eventType: eventType,
+            description: "Apply synchronized electrical shock to reset heart rhythm"
+          }
+        ];
+      case "hypotension":
+        return [
+          {
+            name: "Intervention A",
+            type: "intervention",
+            strategy: "Fluid Bolus",
+            probability: generateProbability(70, caseVariation),
+            eventType: eventType,
+            description: "Administer IV fluids to increase blood volume and pressure"
+          },
+          {
+            name: "Intervention B",
+            type: "intervention",
+            strategy: "Vasopressors",
+            probability: generateProbability(85, 1 - caseVariation),
+            eventType: eventType,
+            description: "Administer vasopressors to increase vascular tone and blood pressure"
+          }
+        ];
+      case "hypertension":
+        return [
+          {
+            name: "Intervention A",
+            type: "intervention",
+            strategy: "Vasodilators",
+            probability: generateProbability(80, caseVariation),
+            eventType: eventType,
+            description: "Administer vasodilators to reduce systemic vascular resistance"
+          },
+          {
+            name: "Intervention B",
+            type: "intervention",
+            strategy: "Beta Blockers",
+            probability: generateProbability(75, 1 - caseVariation),
+            eventType: eventType,
+            description: "Administer beta blockers to reduce cardiac output and blood pressure"
+          }
+        ];
+      case "hypoxemia":
+      case "desaturation":
+        return [
+          {
+            name: "Intervention A",
+            type: "intervention",
+            strategy: "Increase FiO2",
+            probability: generateProbability(85, caseVariation),
+            eventType: eventType,
+            description: "Increase fraction of inspired oxygen to improve oxygenation"
+          },
+          {
+            name: "Intervention B",
+            type: "intervention",
+            strategy: "PEEP Adjustment",
+            probability: generateProbability(78, 1 - caseVariation),
+            eventType: eventType,
+            description: "Increase positive end-expiratory pressure to recruit alveoli"
+          }
+        ];
+      default:
+        return [
+          {
+            name: "Intervention A",
+            type: "intervention",
+            strategy: "Conservative Approach",
+            probability: generateProbability(75, caseVariation),
+            eventType: eventType,
+            description: "Apply standard treatment protocol with minimal invasiveness"
+          },
+          {
+            name: "Intervention B",
+            type: "intervention",
+            strategy: "Aggressive Approach",
+            probability: generateProbability(85, 1 - caseVariation),
+            eventType: eventType,
+            description: "Apply intensive intervention with potential for faster response"
+          }
+        ];
+    }
+  };
+  
+  // Create the tree structure
+  return {
+    name: "Crisis at " + centerTime.toFixed(1) + "s",
+    type: "root",
+    children: eventTypes.map(eventType => ({
+      name: eventType.charAt(0).toUpperCase() + eventType.slice(1),
+      type: "event",
+      eventType: eventType,
+      children: getInterventionsForEvent(eventType)
+    }))
   };
 }
 
@@ -892,11 +1103,6 @@ function chooseInterventionB(eventType) {
   simulatedData = buildSimulatedData(paramValue, true);
   // Refresh chart with simulation data
   refreshChart(detailedXScale.domain()[0], detailedXScale.domain()[1], (detailedXScale.domain()[0] + detailedXScale.domain()[1]) / 2);
-}
-
-// Show node details on hover
-function showNodeDetails(event, d) {
-  // Implemented inside initInterventionTree
 }
 
 // Initialize simulation controls
@@ -939,16 +1145,91 @@ function buildSimulatedData(param, isInterventionB = false) {
   
   // Get the first selected signal as reference
   let referenceData = [];
+  let signalType = "unknown";
+  
   if (selectedSignals.length > 0 && loadedData[selectedSignals[0].tid]) {
     referenceData = loadedData[selectedSignals[0].tid];
+    // Try to determine signal type from name to customize simulation behavior
+    const signalName = selectedSignals[0].name.toLowerCase();
+    if (signalName.includes("hr") || signalName.includes("heart")) {
+      signalType = "heartrate";
+    } else if (signalName.includes("bp") || signalName.includes("press")) {
+      signalType = "bloodpressure";
+    } else if (signalName.includes("o2") || signalName.includes("spo2") || signalName.includes("oxygen")) {
+      signalType = "oxygen";
+    } else if (signalName.includes("temp")) {
+      signalType = "temperature";
+    } else if (signalName.includes("eeg") || signalName.includes("bis")) {
+      signalType = "eeg";
+    } else if (signalName.includes("resp")) {
+      signalType = "respiration";
+    }
   } else {
     // If no reference data, return empty array
     return [];
   }
   
+  console.log(`Building simulation for signal type: ${signalType}`);
+  
+  // Get case ID for case-specific variations
+  const urlParams = new URLSearchParams(window.location.search);
+  const caseId = parseInt(urlParams.get("caseId")) || 1;
+  
+  // Generate a reproducible random factor based on case ID
+  const caseRandomFactor = ((caseId * 17) % 100) / 100; // 0-1 range
+  
   // Find the average value before center time
   const preValues = referenceData.filter(d => d.time < centerTime).map(d => d.value);
   const preAvg = preValues.length > 0 ? d3.mean(preValues) : 0;
+  
+  // Calculate standard deviation to model natural variability
+  const stdDev = preValues.length > 0 ? 
+    Math.sqrt(d3.sum(preValues, d => Math.pow(d - preAvg, 2)) / preValues.length) : 1;
+  
+  // Get min and max values to keep simulated data within reasonable bounds
+  const minValue = d3.min(referenceData, d => d.value);
+  const maxValue = d3.max(referenceData, d => d.value);
+  const valueRange = maxValue - minValue;
+  
+  // Treatment efficacy modifiers by signal type (some conditions respond differently)
+  const efficacyByType = {
+    heartrate: { a: 0.8 + caseRandomFactor * 0.4, b: 1.2 - caseRandomFactor * 0.3 },
+    bloodpressure: { a: 0.6 + caseRandomFactor * 0.3, b: 1.3 - caseRandomFactor * 0.2 },
+    oxygen: { a: 1.0 + caseRandomFactor * 0.5, b: 0.7 + caseRandomFactor * 0.4 },
+    temperature: { a: 0.4 + caseRandomFactor * 0.2, b: 0.9 + caseRandomFactor * 0.3 },
+    eeg: { a: 0.7 + caseRandomFactor * 0.6, b: 0.8 + caseRandomFactor * 0.5 },
+    respiration: { a: 0.9 + caseRandomFactor * 0.3, b: 1.1 - caseRandomFactor * 0.4 },
+    unknown: { a: 0.8 + caseRandomFactor * 0.4, b: 0.9 + caseRandomFactor * 0.2 }
+  };
+  
+  // Get the right efficacy modifiers
+  const efficacy = efficacyByType[signalType];
+  
+  // Target values that each intervention is trying to reach
+  // Some interventions aim to raise the value, others to lower it
+  const getTargetValue = () => {
+    switch (signalType) {
+      case "heartrate":
+        // Move heart rate toward normal range (60-100)
+        return preAvg > 100 ? 80 - caseRandomFactor * 15 : 
+               preAvg < 60 ? 70 + caseRandomFactor * 15 : preAvg;
+      case "bloodpressure":
+        // Usually try to lower blood pressure if high
+        return preAvg > 140 ? preAvg * (0.7 + caseRandomFactor * 0.2) : 
+               preAvg < 90 ? preAvg * (1.1 + caseRandomFactor * 0.2) : preAvg;
+      case "oxygen":
+        // Always try to increase oxygen levels toward 100%
+        return Math.min(98 + caseRandomFactor * 2, 100);
+      case "temperature":
+        // Move temperature toward normal (36.5-37.5°C)
+        return 37 + (caseRandomFactor - 0.5);
+      default:
+        // Generic case - move halfway back to pre-crisis average
+        return preAvg;
+    }
+  };
+  
+  const targetValue = getTargetValue();
   
   // Generate simulated data
   for (let i = 0; i <= numPoints; i++) {
@@ -965,23 +1246,46 @@ function buildSimulatedData(param, isInterventionB = false) {
       // Before intervention: use actual data
       value = closestPoint.value;
     } else {
-      // After intervention: simulate based on parameter
-      // Time since intervention
-      const elapsed = time - centerTime;
+      // After intervention: simulate based on parameter and intervention type
+      // Time since intervention (normalized to 0-1 range for the remaining time)
+      const timeRemaining = domain[1] - centerTime;
+      const elapsed = (time - centerTime) / timeRemaining;
       
-      // Effect magnitude increases with parameter
-      const magnitude = param / 100;
+      // Parameter effect (0-1 range)
+      const paramEffect = param / 100;
+      
+      // Current difference from target
+      const currentDiff = targetValue - closestPoint.value;
+      
+      // Add some variability based on the original data's standard deviation
+      const variability = (Math.random() - 0.5) * stdDev * 0.5;
       
       // Different models for different interventions
       if (isInterventionB) {
-        // Intervention B: quick response then plateau
-        value = closestPoint.value + (preAvg - closestPoint.value) * 
-          (1 - Math.exp(-elapsed * magnitude * 0.2)) * magnitude * 2;
+        // Intervention B: quick response then plateau with potential relapse
+        const responseSpeed = 3 + caseRandomFactor * 3; // How quickly it responds
+        const effectMagnitude = paramEffect * efficacy.b;
+        const baseResponse = 1 - Math.exp(-elapsed * responseSpeed);
+        
+        // Add potential relapse for some cases (based on case and parameter)
+        const relapseEffect = caseRandomFactor > 0.7 && paramEffect < 0.7 ? 
+          Math.max(0, (elapsed - 0.6) * 2) * 0.4 : 0;
+        
+        value = closestPoint.value + currentDiff * baseResponse * effectMagnitude * (1 - relapseEffect) + variability;
       } else {
-        // Intervention A: gradual improvement
-        value = closestPoint.value + (preAvg - closestPoint.value) * 
-          Math.min(1, elapsed * magnitude * 0.1) * magnitude;
+        // Intervention A: gradual improvement with consistent trajectory
+        const effectMagnitude = paramEffect * efficacy.a;
+        const baseResponse = Math.pow(elapsed, 0.7); // Slightly faster initial response
+        
+        // Add some oscillation for more realistic response
+        const oscillation = Math.sin(elapsed * 10) * stdDev * 0.1 * (1 - elapsed);
+        
+        value = closestPoint.value + currentDiff * baseResponse * effectMagnitude + oscillation + variability;
       }
+      
+      // Ensure value stays within reasonable bounds (within 150% of observed range)
+      const safeBoundary = valueRange * 1.5;
+      value = Math.max(minValue - safeBoundary, Math.min(maxValue + safeBoundary, value));
     }
     
     result.push({
@@ -1001,50 +1305,72 @@ function generateDemoData(tid, startTime, endTime) {
   const timeStep = (endTime - startTime) / dataPoints;
   const result = [];
   
+  // Create a more consistent hash from the track ID that always produces a number
+  const getNumericValue = (str, index, mod) => {
+    // If tid is not a string or is empty, use a default value
+    if (typeof str !== 'string' || !str) {
+      return (index % mod) + 1;
+    }
+    
+    // Convert the character at position (index % string length) to a number
+    const charCode = str.charCodeAt(index % str.length);
+    return (charCode % mod) + 1;
+  };
+
   // Base waveform parameters - different for each signal
-  const baseFreq = (parseInt(tid, 16) % 10) / 10 + 0.1; // 0.1-1.0 Hz, varies by signal
-  const amplitude = (parseInt(tid, 16) % 15) + 5; // 5-20 amplitude, varies by signal
-  const trend = (parseInt(tid, 16) % 3) - 1; // -1, 0, or 1 for downward, flat, or upward trend
+  const baseFreq = getNumericValue(tid, 0, 9) * 0.1 + 0.1; // 0.1-1.0 Hz
+  const amplitude = getNumericValue(tid, 1, 20) + 10; // 10-30 amplitude
+  const trend = (getNumericValue(tid, 2, 3) - 2); // -1, 0, or 1
   
   // Crisis event at 40% of the time range
   const crisisPoint = startTime + (endTime - startTime) * 0.4;
   const recoveryPoint = startTime + (endTime - startTime) * 0.7;
   
+  // Add secondary oscillation for more complex waveforms
+  const secondaryFreq = getNumericValue(tid, 3, 5) * 0.5; // 0.5-3.0 Hz
+  const secondaryAmp = amplitude * 0.3; // 30% of main amplitude
+  
   for (let i = 0; i < dataPoints; i++) {
     const time = startTime + i * timeStep;
     
-    // Base sinusoidal signal
+    // Base sinusoidal signal with more complex waveform
     let value = amplitude * Math.sin(2 * Math.PI * baseFreq * i / 50);
     
+    // Add secondary oscillation
+    value += secondaryAmp * Math.sin(2 * Math.PI * secondaryFreq * i / 10);
+    
     // Add trend
-    value += trend * (i / dataPoints) * 10;
+    value += trend * (i / dataPoints) * 20;
     
     // Add crisis event - sudden change followed by recovery
     if (time >= crisisPoint && time < recoveryPoint) {
       // How far into the crisis (0-1)
       const crisisProgress = (time - crisisPoint) / (recoveryPoint - crisisPoint);
       
+      // Make the crisis more dramatic
       if (crisisProgress < 0.1) {
         // Initial sharp change
-        value += amplitude * 0.8 * (crisisProgress / 0.1);
+        value += amplitude * 1.2 * (crisisProgress / 0.1);
       } else if (crisisProgress < 0.4) {
-        // Sustained crisis
-        value += amplitude * 0.8;
+        // Sustained crisis with additional oscillation
+        value += amplitude * 1.2 + (Math.sin(crisisProgress * 50) * amplitude * 0.2);
       } else {
-        // Recovery
-        value += amplitude * 0.8 * (1 - (crisisProgress - 0.4) / 0.6);
+        // Recovery with some instability
+        value += amplitude * 1.2 * (1 - (crisisProgress - 0.4) / 0.6);
+        value += (Math.sin(crisisProgress * 30) * amplitude * 0.15);
       }
     }
     
-    // Add noise
-    value += (Math.random() - 0.5) * amplitude * 0.2;
+    // Add noise (more pronounced)
+    value += (Math.random() - 0.5) * amplitude * 0.3;
     
+    // Ensure value has sufficient variation
     result.push({
       time: time,
       value: value,
       // Include min/max values for consistency with data_api.js
-      minValue: value - Math.random() * 0.5,
-      maxValue: value + Math.random() * 0.5
+      minValue: value - Math.random() * amplitude * 0.15,
+      maxValue: value + Math.random() * amplitude * 0.15
     });
   }
   

@@ -2,10 +2,10 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <meta name="description" content="Deformable Neural Radiance Fields creates free-viewpoint portraits (nerfies) from casually captured videos.">
-  <meta name="keywords" content="Nerfies, D-NeRF, NeRF">
+  <meta name="description" content="Surgery's Pulse: An interactive dashboard visualizing biosensor data from surgical procedures to detect anomalies and simulate interventions.">
+  <meta name="keywords" content="Surgery, Biosensors, Visualization, Dashboard, Crisis Analysis">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Surgery's Pulse: Animated Biosensor Dashboard</title>
+  <title>Surgery's Pulse: From Pulse to Crisis Intervention</title>
 
   <!-- Global site tag (gtag.js) - Google Analytics -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-PYVRSFMDRL"></script>
@@ -27,12 +27,39 @@
 </head>
 <body>
 
-<section class="hero">
+<!-- Navigation Bar -->
+<nav class="navbar is-light" role="navigation" aria-label="main navigation">
+  <div class="navbar-brand">
+    <a class="navbar-item" href="#">
+      <i class="fas fa-heartbeat"></i>&nbsp;Surgery's Pulse
+    </a>
+  </div>
+
+  <div class="navbar-menu">
+    <div class="navbar-start">
+      <a class="navbar-item" href="#overview">
+        Overview
+      </a>
+      <a class="navbar-item" href="#dashboard-view">
+        Interactive Dashboard
+      </a>
+      <a class="navbar-item" href="#comparative">
+        Comparative Insights
+      </a>
+      <a class="navbar-item" href="#documentation">
+        Documentation
+      </a>
+    </div>
+  </div>
+</nav>
+
+<section class="hero is-medium is-primary">
   <div class="hero-body">
     <div class="container is-max-desktop">
       <div class="columns is-centered">
         <div class="column has-text-centered">
-          <h1 class="title is-1 publication-title">Surgery's Pulse: Animated Biosensor Dashboard</h1>
+          <h1 class="title is-1 publication-title">Surgery's Pulse: From Pulse to Crisis Intervention</h1>
+          <h2 class="subtitle is-3">Visualizing the rhythm of life in the operating room</h2>
           <div class="is-size-5 publication-authors">
             <span class="author-block">
               <a href="">Hargen Zheng</a><sup>1</sup>,</span>
@@ -53,18 +80,66 @@
               <!-- [No structural changes here] -->
             </div>
           </div>
+          <a href="#dashboard-view" class="button is-large is-light is-rounded mt-5">
+            <span>Start Exploring</span>
+            <span class="icon">
+              <i class="fas fa-arrow-right"></i>
+            </span>
+          </a>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<section class="hero teaser">
+<section class="section" id="overview">
   <div class="container is-max-desktop">
-    <div class="hero-body">
-      <h2 class="subtitle has-text-centered">
-        This is the final project for DSC106-WI25.
-      </h2>
+    <h2 class="title is-2">The Big Picture</h2>
+    
+    <div class="box content">
+      <h3 class="title is-4">Understanding the Dataset</h3>
+      <p>
+        Our visualization is built upon a comprehensive dataset from a Korean hospital, capturing vital biosignals 
+        during surgical procedures. Each case contains minute-by-minute recordings of heart rate, blood pressure, 
+        oxygen saturation, and other critical measurements, alongside relevant lab results.
+      </p>
+      
+      <h3 class="title is-4">The Life of a Surgery</h3>
+      <p>
+        Just as a human has a pulse, a surgery has a rhythm—moments of stability, critical turning points, 
+        and interventions that redirect its course. Our dashboard captures this "surgery pulse," allowing 
+        medical professionals to visualize, analyze, and learn from these critical rhythms.
+      </p>
+      
+      <p>
+        Every surgery tells a story: from the initial incision through critical moments to the final suture. 
+        By visualizing these narratives, we enable deeper understanding of surgical dynamics and better 
+        preparation for future procedures.
+      </p>
+      
+      <div class="columns">
+        <div class="column">
+          <figure class="image">
+            <img src="https://via.placeholder.com/600x300?text=Preview+of+Timeseries+Visualization" alt="Preview of main visualization">
+            <figcaption>Primary time-series visualization showing biosignal trends with anomaly detection</figcaption>
+          </figure>
+        </div>
+        <div class="column">
+          <figure class="image">
+            <img src="https://via.placeholder.com/600x150?text=Overview+Timeline" alt="Preview of overview timeline">
+            <figcaption>Overview timeline for contextual navigation throughout the surgery</figcaption>
+          </figure>
+        </div>
+      </div>
+      
+      <div class="has-text-centered mt-5">
+        <a href="#dashboard-view" class="button is-primary is-medium">
+          <span>Explore the Interactive Dashboard</span>
+          <span class="icon">
+            <i class="fas fa-chart-line"></i>
+          </span>
+        </a>
+      </div>
     </div>
   </div>
 </section>
@@ -72,20 +147,52 @@
 <section class="hero is-light is-small">
   <div class="hero-body">
     <div class="container">
+      <h2 class="title is-2 has-text-centered mb-6" id="interactive-dashboard">Interactive Dashboard: The Surgery's Pulse</h2>
+      
+      <div class="notification is-info is-light">
+        <p><strong>How to use:</strong> Select a case using the filters above. Use the playback controls to animate the biosignal data. 
+        The overview timeline below allows you to navigate to specific points in time using the brush tool. 
+        Click on any anomaly marker (red circles) to enter the detailed Crisis Analysis view.</p>
+      </div>
+      
       <div id="dashboard-view">
         <!-- (1) Top controls: case/track selection -->
         <div id="controls-top">
           <div class="caseSelector">
-            <label for="caseSelector">Select Case:</label>
-            <select id="caseSelector"></select>
+            <div class="case-filter-group">
+              <div class="filter-item">
+                <label for="operationCategory">Operation Type</label>
+                <select id="operationCategory">
+                  <option value="">Select Category</option>
+                </select>
+              </div>
+              <div class="filter-item">
+                <label for="complexityLevel">Complexity</label>
+                <select id="complexityLevel">
+                  <option value="">Select Level</option>
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                </select>
+              </div>
+              <div class="filter-item">
+                <label for="caseSelector">Case ID</label>
+                <select id="caseSelector">
+                  <option value="">Select Case</option>
+                </select>
+              </div>
+            </div>
           </div>
-          <div class="trackSelector">
-            <label for="trackSelector">Select Track:</label>
-            <select id="trackSelector"></select>
-          </div>
-          <div class="labToggle">
-            <label for="labToggle">Show Lab Results:</label>
-            <input type="checkbox" id="labToggle" />
+          
+          <div class="secondary-controls">
+            <div class="trackSelector">
+              <label for="trackSelector">Select Track:</label>
+              <select id="trackSelector"></select>
+            </div>
+            <div class="labToggle">
+              <label for="labToggle">Show Lab Results:</label>
+              <input type="checkbox" id="labToggle" />
+            </div>
           </div>
         </div>
 
@@ -99,36 +206,61 @@
         <div id="chart-container">
           <div id="chart"></div>
           <div id="controls">
-            <button id="rewind"><i class="fas fa-backward"></i> Rewind</button>
-            <button id="play"><i class="fas fa-play"></i> Play</button>
-            <button id="pause"><i class="fas fa-pause"></i> Pause</button>
-            <button id="fastForward"><i class="fas fa-forward"></i> Fast Forward</button>
+            <div class="control-group">
+              <button id="rewind"><i class="fas fa-backward"></i> Rewind</button>
+              <button id="fastForward"><i class="fas fa-play"></i> Play</button>
+            </div>
 
-            <label for="scrubber">Scrub:</label>
-            <input type="range" id="scrubber" min="0" max="100" value="0" step="1" />
+            <div class="control-group">
+              <label for="scrubber">Time:</label>
+              <input type="range" id="scrubber" min="0" max="100" value="0" step="1" />
+            </div>
 
-            <label for="speed">Speed:</label>
-            <select id="speed">
-              <option value="0.5">0.5x</option>
-              <option value="1" selected>1x</option>
-              <option value="2">2x</option>
-            </select>
+            <div class="control-group">
+              <label for="speed">Speed:</label>
+              <select id="speed">
+                <option value="0.5">0.5x</option>
+                <option value="1" selected>1x</option>
+                <option value="2">2x</option>
+              </select>
+            </div>
 
-            <label for="MAdropdownMenu">Show MA:</label>
-            <select id="MAdropdownMenu">
-              <option value="none">None</option>
-              <option value="1min">1 min</option>
-              <option value="5min">5 min</option>
-              <option value="both">Both</option>
-            </select>
+            <div class="control-group">
+              <label for="MAdropdownMenu">MA:</label>
+              <select id="MAdropdownMenu">
+                <option value="none">None</option>
+                <option value="1min">1 min</option>
+                <option value="5min">5 min</option>
+                <option value="both">Both</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- (5) Overview timeline container - Moved inside chart-container -->
+          <div id="overview">
+            <h4 class="overview-title">Surgery Timeline (Click and drag to zoom)</h4>
+            <button id="clearBrush">Clear Selection</button>
           </div>
         </div>
 
-        <!-- (5) Overview timeline container -->
-        <div id="overview">
-          <button id="clearBrush">Clear Selection</button>
+        <!-- Sidebar for anomalies list -->
+        <div id="sidebar" class="box">
+          <h3 class="title is-5">Detected Anomalies</h3>
+          <div id="anomalies-list">
+            <p class="has-text-centered"><i>Select a case to view detected anomalies</i></p>
+            <!-- Anomalies will be populated here by JS -->
+          </div>
+          <hr>
+          <div id="current-time-info">
+            <h4 class="title is-6">Current Time Point</h4>
+            <p class="is-size-7">Time: <span id="current-time-display">00:00:00</span></p>
+            <p class="is-size-7">Value: <span id="current-value-display">--</span></p>
+          </div>
         </div>
       </div>
+      
+      <!-- Tooltip for displaying data point and annotation information -->
+      <div class="tooltip" style="opacity: 0;"></div>
 
       <!-- Scripts for dashboard -->
       <script src="./data_api.js"></script>
@@ -139,6 +271,67 @@
         document.getElementById('labToggle').addEventListener('change', function() {
           document.getElementById('labResults').style.display = this.checked ? 'block' : 'none';
         });
+
+        // Add event listener for case selector
+        document.getElementById('caseSelector').addEventListener('change', function() {
+          const caseId = this.value;
+          console.log("Case selector change event triggered with caseId:", caseId);
+          if (caseId) {
+            updateCaseWithDataAPI(caseId);
+            updateAnomaliesList(caseId); // New function to update anomalies sidebar
+          }
+        });
+
+        // Function to update the anomalies list in the sidebar
+        function updateAnomaliesList(caseId) {
+          // This would be populated with actual data in the real implementation
+          const dummyAnomalies = [
+            { time: "00:32:15", type: "Hypotension", severity: "Medium" },
+            { time: "01:15:45", type: "Tachycardia", severity: "High" },
+            { time: "02:05:10", type: "Oxygen Desaturation", severity: "Low" }
+          ];
+          
+          const anomaliesList = document.getElementById('anomalies-list');
+          anomaliesList.innerHTML = '';
+          
+          dummyAnomalies.forEach((anomaly, index) => {
+            const anomalyItem = document.createElement('div');
+            anomalyItem.className = 'box is-small mb-2';
+            anomalyItem.innerHTML = `
+              <p class="is-size-7 has-text-weight-bold">${anomaly.type} <span class="tag is-${getSeverityColor(anomaly.severity)}">${anomaly.severity}</span></p>
+              <p class="is-size-7">Time: ${anomaly.time}</p>
+              <a href="crisisAnalysis.html?caseId=${caseId}&time=${timeToSeconds(anomaly.time)}" class="button is-small is-outlined is-info mt-1">Analyze</a>
+            `;
+            anomaliesList.appendChild(anomalyItem);
+          });
+        }
+        
+        function getSeverityColor(severity) {
+          switch(severity.toLowerCase()) {
+            case 'low': return 'warning';
+            case 'medium': return 'info';
+            case 'high': return 'danger';
+            default: return 'info';
+          }
+        }
+        
+        function timeToSeconds(timeStr) {
+          const [hours, minutes, seconds] = timeStr.split(':').map(Number);
+          return hours * 3600 + minutes * 60 + seconds;
+        }
+
+        // Update current time display when playback updates
+        function updateTimeDisplay(time, value) {
+          document.getElementById('current-time-display').textContent = formatTime(time);
+          document.getElementById('current-value-display').textContent = value ? value.toFixed(2) : '--';
+        }
+        
+        function formatTime(seconds) {
+          const hrs = Math.floor(seconds / 3600);
+          const mins = Math.floor((seconds % 3600) / 60);
+          const secs = Math.floor(seconds % 60);
+          return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
 
         // Listen for URL parameters on page load to handle returns from crisis view
         document.addEventListener('DOMContentLoaded', function() {
@@ -165,19 +358,58 @@
                 setTimeout(() => {
                   currentTime = parseFloat(time);
                   updatePlayback();
+                  updateTimeDisplay(currentTime, getCurrentValue());
                 }, 500);
               }
             }, 500);
           }
         });
+        
+        // Dummy function to get current value - would be replaced with actual implementation
+        function getCurrentValue() {
+          return Math.random() * 100;
+        }
       </script>
     </div>
   </div>
 </section>
 
-<section class="section">
+<section class="section" id="comparative">
   <div class="container is-max-desktop">
-    <h2 class="title is-3">Project Overview</h2>
+    <h2 class="title is-3">Comparative Insights</h2>
+    <div class="content has-text-justified">
+      <p>
+        Beyond individual case analysis, the Surgery's Pulse dashboard enables comparison across multiple 
+        procedures, helping identify patterns in surgical techniques, response to interventions, and 
+        outcome predictions.
+      </p>
+      <div class="columns">
+        <div class="column">
+          <div class="box">
+            <h4 class="title is-4">Procedure Comparison</h4>
+            <p>Compare vital signs across different procedures of the same type to identify best practices and risks.</p>
+            <figure class="image">
+              <img src="https://via.placeholder.com/400x200?text=Procedure+Comparison" alt="Procedure comparison chart">
+            </figure>
+          </div>
+        </div>
+        <div class="column">
+          <div class="box">
+            <h4 class="title is-4">Intervention Effectiveness</h4>
+            <p>Analyze the effectiveness of similar interventions across different cases and patient profiles.</p>
+            <figure class="image">
+              <img src="https://via.placeholder.com/400x200?text=Intervention+Effectiveness" alt="Intervention effectiveness chart">
+            </figure>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="documentation">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">Project Documentation</h2>
     <div class="content has-text-justified">
       <p>
         The Surgery's Pulse dashboard visualizes real-time biosensor data from surgical procedures, 
@@ -196,6 +428,23 @@
       <p>
         Click on any anomaly marker or event annotation to enter the detailed crisis analysis view.
       </p>
+      
+      <div class="box">
+        <h4 class="title is-4">Technical Implementation</h4>
+        <p>
+          This dashboard is built using D3.js for visualization, with data processing handled through 
+          a PHP and Python backend. The system processes large datasets progressively to maintain 
+          performance while providing high-resolution visualizations.
+        </p>
+        <p>
+          Data sources include:
+        </p>
+        <ul>
+          <li>Biosignal time-series (heart rate, blood pressure, etc.)</li>
+          <li>Lab results with timestamps</li>
+          <li>Case metadata (procedure type, complexity, timestamps)</li>
+        </ul>
+      </div>
     </div>
   </div>
 </section>
@@ -205,6 +454,14 @@
     <div class="content has-text-centered">
       <p>
         Project developed by Hargen Zheng, Travis Wu, Kaijie Zhang, and Rihui Ling
+      </p>
+      <p>
+        <a href="#" class="icon"><i class="fab fa-github"></i></a>
+        <a href="#" class="icon"><i class="fab fa-twitter"></i></a>
+        <a href="#" class="icon"><i class="fas fa-envelope"></i></a>
+      </p>
+      <p class="is-size-7">
+        University of San Diego &bull; DSC106-WI25 &bull; Final Project
       </p>
     </div>
   </div>

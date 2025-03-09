@@ -1,5 +1,27 @@
 // dashboard.js
 
+// Immediately show a default visualization when the page loads
+document.addEventListener("DOMContentLoaded", function() {
+  console.log("DOM loaded, showing initial visualization");
+  
+  // Show a loading indicator
+  if (typeof showLoadingOverlay === 'function') {
+    showLoadingOverlay("Initializing dashboard...");
+  }
+  
+  // Show a default visualization right away
+  setTimeout(function() {
+    if (typeof showDefaultVisualization === 'function') {
+      showDefaultVisualization();
+    }
+    
+    // Then try to load the real data
+    if (typeof initializeWithDataAPI === 'function') {
+      initializeWithDataAPI();
+    }
+  }, 100);
+});
+
 // Global chart dimensions with responsive sizing
 const margin = { top: 20, right: 50, bottom: 50, left: 60 },
       width = 900 - margin.left - margin.right,
@@ -10,6 +32,8 @@ let currentTime = 0;
 let playing = false;
 let playbackSpeed = 1;
 let timer = null;
+let fastForwardMode = true; // Always in fast forward mode
+let normalPlaybackSpeed = 1; // Store normal speed for restoration
 
 // References to current chart elements
 let currentXScale,
@@ -41,39 +65,33 @@ const tooltip = d3.select("body")
   .attr("class", "tooltip")
   .style("opacity", 0);
 
+// Global variable to store the case hierarchy
+let caseHierarchy = null;
+
 // ----------------------------------------------------------
 // 1) PLAYBACK CONTROLS
 // ----------------------------------------------------------
 function updatePlayback() {
-  // Update the scrubber slider
-  d3.select("#scrubber").property("value", currentTime);
-
-  // Move vertical time marker with smooth transition
-  if (window.mainXScale && window.timeMarker) {
-    const xPos = window.mainXScale(currentTime);
-    window.timeMarker
-      .transition()
-      .duration(currentTransitionDuration / playbackSpeed)
-      .attr("x1", xPos)
-      .attr("x2", xPos);
-  }
-
-  // Highlight annotations whose time is <= currentTime with transition
-  if (currentAnnotationGroup) {
-    currentAnnotationGroup.selectAll("circle")
-      .transition()
-      .duration(currentTransitionDuration / 2)
-      .attr("fill", d => currentTime >= d.time ? colors.annotationActive : d.baseColor)
-      .attr("r", d => currentTime >= d.time ? 8 : 6) // Make active annotations slightly larger
-      .attr("stroke-width", d => currentTime >= d.time ? 2 : 1);
-      
-    // Add flashing effect to critical events
-    currentAnnotationGroup.selectAll("circle")
-      .classed("flash", d => d.critical && currentTime >= d.time);
-  }
-  
-  // Check for anomalies around current time
+  // Update scrubber position
+  if (window.mainXScale) {
+    // Convert current time to percentage for scrubber
+    const domain = window.mainXScale.domain();
+    const min = domain[0];
+    const max = domain[1];
+    const percentage = ((currentTime - min) / (max - min)) * 100;
+    document.getElementById("scrubber").value = percentage;
+    
+    // Update time marker position
+    const timeMarker = d3.select(".time-marker");
+    if (!timeMarker.empty()) {
+      timeMarker
+        .attr("x1", window.mainXScale(currentTime))
+        .attr("x2", window.mainXScale(currentTime));
+    }
+    
+    // Check for anomalies
   checkForAnomalies();
+  }
 }
 
 function stepPlayback() {
@@ -82,48 +100,80 @@ function stepPlayback() {
   // Increment time based on speed
   currentTime += playbackSpeed;
   
+  // Check if we've reached the end of the current domain
+  if (window.mainXScale) {
+    const domain = window.mainXScale.domain();
+    if (currentTime > domain[1]) {
+      // Loop back to beginning if at the end
+      currentTime = domain[0];
+    }
+  }
+  
   // Update the display
   updatePlayback();
   
-  // Schedule the next step
-  timer = setTimeout(stepPlayback, 100);
+  // Always use fast forward timing (50ms)
+  timer = setTimeout(stepPlayback, 50);
 }
 
-function playPlayback() {
-  if (playing) return;
-  
+function fastForwardPlayback() {
+  if (playing) {
+    // If already playing, stop
+    playing = false;
+    
+    // Update button visual to indicate stopped state
+    document.getElementById("fastForward").classList.remove("active-ff");
+    document.getElementById("fastForward").innerHTML = '<i class="fas fa-play"></i> Play';
+    
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  } else {
+    // Start playback in fast forward mode
   playing = true;
-  document.getElementById("play").disabled = true;
-  document.getElementById("pause").disabled = false;
+    playbackSpeed = normalPlaybackSpeed * 5; // 5x faster
+    
+    // Update button visual to indicate playing state
+    document.getElementById("fastForward").classList.add("active-ff");
+    document.getElementById("fastForward").innerHTML = '<i class="fas fa-pause"></i> Stop';
   
   stepPlayback();
-}
-
-function pausePlayback() {
-  if (!playing) return;
-  
-  playing = false;
-  document.getElementById("play").disabled = false;
-  document.getElementById("pause").disabled = true;
-  
-  if (timer) {
-    clearTimeout(timer);
-    timer = null;
   }
 }
 
 function rewindPlayback() {
-  if (playing) pausePlayback();
+  if (playing) {
+    // Stop playback
+  playing = false;
+  if (timer) {
+    clearTimeout(timer);
+    timer = null;
+  }
+    // Reset play button state
+    document.getElementById("fastForward").classList.remove("active-ff");
+    document.getElementById("fastForward").innerHTML = '<i class="fas fa-play"></i> Play';
+  }
   
-  currentTime = currentXDomain ? currentXDomain[0] : 0;
+  // First try to get domain from mainXScale, then fall back to currentXDomain, then use default
+  if (window.mainXScale) {
+    const domain = window.mainXScale.domain();
+    currentTime = domain[0];
+  } else if (currentXDomain) {
+    currentTime = currentXDomain[0];
+  } else {
+    currentTime = 0;
+  }
+  
   updatePlayback();
 }
 
-function fastForwardPlayback() {
-  if (playing) pausePlayback();
-  
-  currentTime = currentXDomain ? currentXDomain[1] : 100;
-  updatePlayback();
+// If adjusting or updating playback speed
+function updatePlaybackSpeed(newSpeed) {
+  normalPlaybackSpeed = newSpeed;
+  if (playing) {
+    playbackSpeed = newSpeed * 5; // Maintain 5x speed while playing
+  }
 }
 
 // ----------------------------------------------------------
@@ -234,8 +284,6 @@ document.addEventListener("DOMContentLoaded", function() {
         return Promise.resolve(window.labsData.filter(l => l.caseid === +caseId));
       },
       getSignalData: function(tid, startTime, endTime) {
-        // This is a simplified fallback that won't actually work for signal data
-        // It will just show an error message to the user
         showErrorMessage("Signal data loading requires the data API module.");
         return Promise.reject("Signal data loading requires the data API module");
       }
@@ -243,14 +291,12 @@ document.addEventListener("DOMContentLoaded", function() {
   }
   
   // Bind playback buttons
-  document.getElementById("play").addEventListener("click", playPlayback);
-  document.getElementById("pause").addEventListener("click", pausePlayback);
   document.getElementById("rewind").addEventListener("click", rewindPlayback);
   document.getElementById("fastForward").addEventListener("click", fastForwardPlayback);
   
   // Initialize speed control
   document.getElementById("speed").addEventListener("change", function() {
-    playbackSpeed = parseFloat(this.value);
+    updatePlaybackSpeed(parseFloat(this.value));
   });
 
   // Initialize loading - using data API if available
@@ -260,102 +306,544 @@ document.addEventListener("DOMContentLoaded", function() {
     // Legacy loading method
     loadData();
   }
+
+  // Load case hierarchy data
+  loadCaseHierarchy();
 });
 
-// Modern initialization method using data API
+// Initialize data API
 function initializeWithDataAPI() {
+  // Check if dataAPI is available
+  if (!window.dataAPI) {
+    console.error("dataAPI is not available. Make sure data_api.js is loaded properly");
+    showErrorMessage("The data API could not be initialized. Please check your console for more information.");
+    
+    // Still show a default visualization
+    showDefaultVisualization();
+    return Promise.reject("dataAPI is not available");
+  }
+
   // Show loading indicator
   showLoadingOverlay('Initializing dashboard...');
   
+  console.log("Initializing data API...");
+  
   // Initialize the data API
-  window.dataAPI.initialize()
+  return window.dataAPI.initialize()
     .then(() => {
+      console.log("Data API initialized successfully");
       // Once initialized, get the case list
       return window.dataAPI.getCaseList();
     })
     .then(cases => {
-      // Populate case dropdown
+      console.log("Cases loaded:", cases.length);
+      
+      // Populate case dropdown (for legacy mode only)
       let caseSelector = d3.select("#caseSelector");
-      caseSelector.selectAll("option")
-        .data(cases)
-        .enter()
-        .append("option")
-        .attr("value", d => d.caseid)
-        .text(d => `Case ${d.caseid}: ${d.opname || 'Unknown'}`);
+      
+      // Only do this if we're not using the hierarchical selection
+      const isUsingHierarchy = document.getElementById('operationCategory') && 
+                             document.getElementById('complexityLevel');
+      
+      if (!isUsingHierarchy) {
+        caseSelector.selectAll("option")
+          .data(cases)
+          .enter()
+          .append("option")
+          .attr("value", d => d.caseid)
+          .text(d => `Case ${d.caseid}: ${d.opname || 'Unknown'}`);
+          
+        // On case change
+        caseSelector.on("change", function() {
+          try {
+            updateCaseWithDataAPI(+this.value);
+          } catch (error) {
+            console.error("Error updating case:", error);
+            showErrorMessage("Failed to update case. Using default visualization instead.");
+            loadDefaultCaseFromDataset();
+          }
+        });
 
-      // On case change
-      caseSelector.on("change", function() {
-        updateCaseWithDataAPI(+this.value);
-      });
-
-      // By default, pick the first case
-      let defaultCase = cases[0];
-      if (defaultCase) {
-        caseSelector.property("value", defaultCase.caseid);
-        updateCaseWithDataAPI(defaultCase.caseid);
+        // By default, pick the first case
+        let defaultCase = cases[0];
+        if (defaultCase) {
+          caseSelector.property("value", defaultCase.caseid);
+          try {
+            updateCaseWithDataAPI(defaultCase.caseid);
+          } catch (error) {
+            console.error("Error loading default case:", error);
+            loadDefaultCaseFromDataset();
+          }
+        } else {
+          showInfoMessage("No cases found in the dataset. Using default visualization.");
+          loadDefaultCaseFromDataset();
+        }
       } else {
-        showErrorMessage("No cases found in the dataset.");
+        // For hierarchical selection, trigger the loadCaseHierarchy which will
+        // populate the hierarchical fields
+        loadCaseHierarchy().then(() => {
+          // After loading hierarchy, select the first case
+          setTimeout(() => {
+            const operationSelect = document.getElementById('operationCategory');
+            if (operationSelect && operationSelect.options.length > 0) {
+              operationSelect.selectedIndex = 1; // Select first non-empty option
+              const event = new Event('change');
+              operationSelect.dispatchEvent(event);
+              
+              // After operation type is selected, select a complexity
+              setTimeout(() => {
+                const complexitySelect = document.getElementById('complexityLevel');
+                if (complexitySelect && complexitySelect.options.length > 0) {
+                  complexitySelect.selectedIndex = 1; // Select first complexity
+                  complexitySelect.dispatchEvent(new Event('change'));
+                  
+                  // After complexity is selected, select a case
+                  setTimeout(() => {
+                    const caseSelect = document.getElementById('caseSelector');
+                    if (caseSelect && caseSelect.options.length > 0) {
+                      caseSelect.selectedIndex = 1; // Select first case
+                      caseSelect.dispatchEvent(new Event('change'));
+                    } else {
+                      loadDefaultCaseFromDataset();
+                    }
+                  }, 100);
+                } else {
+                  loadDefaultCaseFromDataset();
+                }
+              }, 100);
+            } else {
+              loadDefaultCaseFromDataset();
+            }
+          }, 100);
+        }).catch(err => {
+          console.error("Error loading case hierarchy:", err);
+          loadDefaultCaseFromDataset();
+        });
       }
       
-      // Hide loading indicator
+      // Hide loading overlay
       hideLoadingOverlay();
+      
+      return cases;
     })
     .catch(error => {
-      console.error("Error initializing dashboard:", error);
-      showErrorMessage(`Failed to initialize dashboard: ${error.message || 'Unknown error'}`);
+      console.error("Error initializing with data API:", error);
+      showErrorMessage("An error occurred while initializing the dashboard. Default visualization is shown.");
+      hideLoadingOverlay();
+      // Load a default case from the dataset instead of showing generated data
+      loadDefaultCaseFromDataset();
     });
+}
+
+// Function to load a default case from the dataset
+function loadDefaultCaseFromDataset() {
+  console.log("Loading default case from dataset");
+  
+  // Show loading indicator
+  showLoadingOverlay("Preparing default visualization...");
+  
+  // Clear any existing chart
+  d3.select("#chart").select("svg").remove();
+  
+  // First try with a specific case ID
+  const defaultCaseId = 1;
+  
+  try {
+    // Try to get the track data for a default case
+    window.dataAPI.getTracksForCase(defaultCaseId)
+      .then(tracks => {
+        if (tracks && tracks.length > 0) {
+          // If we have tracks, update the UI to show we're using case 1
+          const caseSelector = document.getElementById('caseSelector');
+          if (caseSelector) {
+            for (let i = 0; i < caseSelector.options.length; i++) {
+              if (caseSelector.options[i].value == defaultCaseId) {
+                caseSelector.selectedIndex = i;
+                break;
+              }
+            }
+          }
+          
+          // Update the track selector
+          let trackSelector = d3.select("#trackSelector");
+          trackSelector.selectAll("option").remove();
+          trackSelector.selectAll("option")
+            .data(tracks)
+            .enter()
+            .append("option")
+            .attr("value", d => d.tid)
+            .text(d => d.tname || `Track ${d.tid}`);
+          
+          // Select the first track and visualize it
+          if (tracks.length > 0) {
+            trackSelector.property("value", tracks[0].tid);
+            updateChartWithDataAPI(tracks[0].tid);
+            return; // Done, we've loaded a real track
+          }
+        }
+        
+        // If we get here, we couldn't load tracks for case 1
+        throw new Error("No tracks available for default case");
+      })
+      .catch(error => {
+        console.error("Error loading default case:", error);
+        // Fall back to simulated data
+        hideLoadingOverlay();
+        showDefaultVisualization();
+      });
+  } catch (error) {
+    console.error("Error in loadDefaultCaseFromDataset:", error);
+    hideLoadingOverlay();
+    showDefaultVisualization();
+  }
+}
+
+// Create a default visualization without relying on real data
+function showDefaultVisualization() {
+  console.log("Creating default visualization");
+  
+  // Clear any existing chart
+  d3.select("#chart").select("svg").remove();
+  
+  // Default time range
+  const startTime = 0;
+  const endTime = 1000;
+  
+  // Get default data
+  let defaultData = [];
+  if (window.dataAPI && typeof window.dataAPI.generateDefaultData === 'function') {
+    defaultData = window.dataAPI.generateDefaultData(startTime, endTime);
+  } else {
+    // In case dataAPI is not available, generate simple data here
+    const numPoints = 1000;
+    const step = (endTime - startTime) / numPoints;
+    
+    for (let i = 0; i < numPoints; i++) {
+      const time = startTime + i * step;
+      const value = 80 + 10 * Math.sin(time / 10) + 5 * Math.sin(time / 60) + (Math.random() - 0.5) * 3;
+      defaultData.push({
+        time: time,
+        value: value,
+        minValue: value - 1,
+        maxValue: value + 1
+      });
+    }
+  }
+  
+  // Clear interface selections to match the default state
+  try {
+    // Clear dropdown selections
+    const operationSelect = document.getElementById('operationCategory');
+    if (operationSelect) operationSelect.selectedIndex = 0;
+    
+    const complexitySelect = document.getElementById('complexityLevel');
+    if (complexitySelect) complexitySelect.selectedIndex = 0;
+    
+    const caseSelect = document.getElementById('caseSelector');
+    if (caseSelect) caseSelect.selectedIndex = 0;
+    
+    const trackSelect = document.getElementById('trackSelector');
+    if (trackSelect) {
+      // Clear existing options
+      while (trackSelect.options.length > 0) {
+        trackSelect.remove(0);
+      }
+      // Add default option
+      const defaultOption = document.createElement('option');
+      defaultOption.text = 'Default Visualization';
+      defaultOption.value = '';
+      trackSelect.add(defaultOption);
+    }
+  } catch (e) {
+    console.error("Error clearing interface selections:", e);
+  }
+  
+  // Set up the chart with default data
+  const svg = d3.select("#chart")
+    .append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
+    .attr("preserveAspectRatio", "xMidYMid meet")
+    .append("g")
+    .attr("transform", `translate(${margin.left},${margin.top})`);
+  
+  // Add title
+  svg.append("text")
+    .attr("class", "chart-title")
+    .attr("x", width / 2)
+    .attr("y", -margin.top / 2 + 5)
+    .attr("text-anchor", "middle")
+    .attr("dominant-baseline", "central")
+    .text("Patient Biosignal Monitoring");
+  
+  // Add subtitle
+  svg.append("text")
+    .attr("class", "chart-subtitle")
+    .attr("x", width / 2)
+    .attr("y", -margin.top / 2 + 30)
+    .attr("text-anchor", "middle")
+    .attr("dominant-baseline", "central")
+    .text("Default Heart Rate Visualization");
+  
+  // Set up scales
+  const xScale = d3.scaleLinear()
+    .range([0, width])
+    .domain([startTime, endTime]);
+  
+  const valueExtent = d3.extent(defaultData, d => d.value);
+  const yScale = d3.scaleLinear()
+    .range([height, 0])
+    .domain([valueExtent[0] - 5, valueExtent[1] + 5]);
+  
+  // Save scales globally
+  window.mainXScale = xScale;
+  window.mainYScale = yScale;
+  window.currentTrackData = defaultData;
+  
+  // Add clip path
+  svg.append("defs").append("clipPath")
+    .attr("id", "clip")
+    .append("rect")
+    .attr("width", width)
+    .attr("height", height);
+  
+  // Add background grid
+  const gridG = svg.append("g")
+    .attr("class", "grid-lines");
+  
+  // Add X grid lines
+  gridG.append("g")
+    .attr("class", "grid x-grid")
+    .attr("transform", `translate(0,${height})`)
+    .call(d3.axisBottom(xScale)
+      .tickSize(-height)
+      .tickFormat("")
+    );
+  
+  // Add Y grid lines
+  gridG.append("g")
+    .attr("class", "grid y-grid")
+    .call(d3.axisLeft(yScale)
+      .tickSize(-width)
+      .tickFormat("")
+    );
+  
+  const chartG = svg.append("g")
+    .attr("clip-path", "url(#clip)");
+  
+  // Create smooth line generator
+  const line = d3.line()
+    .x(d => xScale(d.time))
+    .y(d => yScale(d.value))
+    .curve(d3.curveCatmullRom.alpha(0.5));
+  
+  // Add range area if we have min/max values
+  if ('minValue' in defaultData[0] && 'maxValue' in defaultData[0]) {
+    const area = d3.area()
+      .x(d => xScale(d.time))
+      .y0(d => yScale(d.minValue))
+      .y1(d => yScale(d.maxValue))
+      .curve(d3.curveCatmullRom.alpha(0.5));
+    
+    chartG.append("path")
+      .datum(defaultData)
+      .attr("class", "range-area")
+      .attr("fill", "rgba(66, 133, 244, 0.2)")
+      .attr("d", area);
+  }
+  
+  // Add line
+  chartG.append("path")
+    .datum(defaultData)
+    .attr("class", "line")
+    .attr("fill", "none")
+    .attr("stroke", "#4285F4")
+    .attr("stroke-width", 2)
+    .attr("d", line);
+  
+  // Add time marker
+  chartG.append("line")
+    .attr("class", "time-marker")
+    .attr("y1", 0)
+    .attr("y2", height)
+    .attr("x1", xScale(startTime))
+    .attr("x2", xScale(startTime))
+    .attr("stroke", "rgba(0, 0, 0, 0.6)")
+    .attr("stroke-width", 2)
+    .attr("stroke-dasharray", "4,4");
+  
+  // Add axes
+  const xAxis = d3.axisBottom(xScale)
+    .tickSizeOuter(0)
+    .tickPadding(10);
+  
+  const yAxis = d3.axisLeft(yScale)
+    .tickSizeOuter(0)
+    .tickPadding(10);
+  
+  // X-axis
+  svg.append("g")
+    .attr("class", "x-axis")
+    .attr("transform", `translate(0,${height})`)
+    .call(xAxis);
+  
+  // X-axis label
+  svg.append("text")
+    .attr("class", "x-label")
+    .attr("x", width / 2)
+    .attr("y", height + 40)
+    .attr("text-anchor", "middle")
+    .text("Time (seconds)");
+  
+  // Y-axis
+  svg.append("g")
+    .attr("class", "y-axis")
+    .call(yAxis);
+  
+  // Y-axis label
+  svg.append("text")
+    .attr("class", "y-label")
+    .attr("transform", "rotate(-90)")
+    .attr("x", -height / 2)
+    .attr("y", -45)
+    .attr("text-anchor", "middle")
+    .text("Heart Rate (BPM)");
+  
+  // Generate data-driven annotations
+  const annotations = generateDataDrivenAnnotations(defaultData, [startTime, endTime]);
+  
+  // Add annotation markers
+  const annotationGroup = svg.append("g")
+    .attr("class", "annotations");
+  
+  annotationGroup.selectAll("circle")
+    .data(annotations)
+      .enter()
+    .append("circle")
+    .attr("cx", d => xScale(d.time))
+    .attr("cy", d => {
+      // Position based on the value at that time
+      const index = Math.floor(d.time / (endTime - startTime) * defaultData.length);
+      const point = defaultData[Math.min(Math.max(0, index), defaultData.length - 1)];
+      return yScale(point.value);
+    })
+    .attr("r", 6)
+    .attr("fill", d => d.baseColor)
+    .attr("stroke", "#fff")
+    .attr("stroke-width", 1)
+    .on("mouseover", function(event, d) {
+      // Show tooltip on hover
+      tooltip.transition()
+        .duration(200)
+        .style("opacity", 0.9);
+      tooltip.html(`
+        <div class="tooltip-content">
+          <div class="tooltip-header">${d.type}</div>
+          <div class="tooltip-text">${d.label}</div>
+          <div class="tooltip-text">Time: ${d.time.toFixed(1)}s</div>
+        </div>
+      `)
+        .style("left", (event.pageX + 10) + "px")
+        .style("top", (event.pageY - 28) + "px");
+        
+      // Highlight the marker
+      d3.select(this)
+        .transition()
+        .duration(200)
+        .attr("r", 8)
+        .attr("stroke-width", 2);
+    })
+    .on("mouseout", function() {
+      // Hide tooltip
+      tooltip.transition()
+        .duration(500)
+        .style("opacity", 0);
+        
+      // Restore marker
+      d3.select(this)
+        .transition()
+        .duration(200)
+        .attr("r", 6)
+        .attr("stroke-width", 1);
+    })
+    .on("click", function(event, d) {
+      // Navigate to detailed view on click
+      const caseId = d3.select("#caseSelector").property("value");
+      window.location.href = `crisisAnalysis.html?caseId=${caseId}&centerTime=${d.time}&start=${d.time-30}&end=${d.time+30}`;
+    });
+  
+  // Update scrubber
+  d3.select("#scrubber")
+    .attr("min", startTime)
+    .attr("max", endTime)
+    .attr("step", (endTime - startTime) / 1000)
+    .property("value", startTime)
+    .on("input", function() {
+      currentTime = +this.value;
+      updatePlayback();
+    });
+  
+  // Add legend with improved positioning and styling
+  const legend = svg.append("g")
+    .attr("class", "legend")
+    .attr("transform", `translate(${width - 120}, 20)`);
+    
+  // Add background rectangle for better visibility
+  legend.append("rect")
+    .attr("width", 100)
+    .attr("height", 80)
+    .attr("fill", "rgba(255, 255, 255, 0.9)")
+    .attr("rx", 5)
+    .attr("ry", 5)
+    .attr("stroke", "#ddd")
+    .attr("stroke-width", 1);
+    
+  // Legend title
+  legend.append("text")
+    .attr("x", 50)
+    .attr("y", 15)
+    .attr("text-anchor", "middle")
+    .attr("font-weight", "bold")
+    .style("font-size", "10px")
+    .text("Legend");
+  
+  // Raw data
+  legend.append("line")
+    .attr("x1", 10)
+    .attr("y1", 30)
+    .attr("x2", 30)
+    .attr("y2", 30)
+    .attr("stroke", colors.mainLine || "#4285F4")
+    .attr("stroke-width", 2.5);
+  
+  legend.append("text")
+    .attr("x", 35)
+    .attr("y", 33)
+    .text("Heart Rate")
+    .style("font-size", "10px");
+  
+  // Store global settings
+  currentTime = startTime;
+  
+  console.log("Default visualization created");
 }
 
 // Legacy loading method (fallback)
 function loadData() {
-  // Show loading indicator
-  showLoadingOverlay('Loading data...');
-
-  Promise.all([
-    d3.csv("data/cases.txt", d3.autoType),
-    d3.csv("data/labs.txt", d3.autoType),
-    d3.csv("data/trks.txt", d3.autoType)
-  ])
-  .then(([cases, labs, trks]) => {
-    // Store in global variables for legacy support
-    window.casesData = cases;
-    window.labsData = labs;
-    window.trksData = trks;
-
-    // Populate case dropdown
-    let caseSelector = d3.select("#caseSelector");
-    caseSelector.selectAll("option")
-      .data(cases)
-      .enter()
-      .append("option")
-      .attr("value", d => d.caseid)
-      .text(d => `Case ${d.caseid}: ${d.opname || 'Unknown'}`);
-
-    // On case change
-    caseSelector.on("change", function() {
-      updateCase(+this.value);
-    });
-
-    // By default, pick the first case that has track data
-    let defaultCase = cases.find(c => trks.some(t => t.caseid === c.caseid)) || cases[0];
-    caseSelector.property("value", defaultCase.caseid);
-    updateCase(defaultCase.caseid);
-
-    // Hide loading indicator
-    hideLoadingOverlay();
+  showLoadingOverlay("Initializing data...");
+  
+  // Initialize the data API first
+  initializeWithDataAPI()
+    .then(() => {
+      console.log("Data API initialized, now loading case hierarchy");
+      // Load case hierarchy after data API is initialized
+      return loadCaseHierarchy();
   })
   .catch(error => {
-    console.error("Error loading data files:", error);
-    // Show error to user
-    const errorMessage = `
-      <div class="error-message">
-        <h3>Error Loading Data</h3>
-        <p>${error.message || 'Unknown error'}</p>
-        <button onclick="location.reload()">Retry</button>
-      </div>
-    `;
-    document.getElementById("chart").innerHTML = errorMessage;
+      console.error("Error during initialization:", error);
     hideLoadingOverlay();
+      showErrorMessage("Failed to initialize data. Please try refreshing the page.");
   });
 }
 
@@ -363,12 +851,54 @@ function loadData() {
 // 3) UPDATE CASE USING DATA API
 // ----------------------------------------------------------
 function updateCaseWithDataAPI(caseId) {
-  // Stop playback if needed
-  if (playing) pausePlayback();
+  console.log("updateCaseWithDataAPI called with caseId:", caseId);
+  
+  if (!caseId) {
+    console.warn("Invalid case ID, using default visualization instead");
+    showDefaultVisualization();
+    return;
+  }
+  
+  if (playing) {
+    playing = false;
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  }
+
+  // Show loading indicator
+  showLoadingOverlay('Loading case data...');
+
+  // Try to update the case selection UI to show which case we're loading
+  try {
+    const caseSelector = document.getElementById('caseSelector');
+    if (caseSelector) {
+      for (let i = 0; i < caseSelector.options.length; i++) {
+        if (caseSelector.options[i].value == caseId) {
+          caseSelector.selectedIndex = i;
+          break;
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Error updating case selector UI:", e);
+  }
 
   // Load tracks for this case
   window.dataAPI.getTracksForCase(caseId)
     .then(tracks => {
+      console.log("Tracks loaded:", tracks ? tracks.length : 0);
+      
+      // Check if we got valid tracks back
+      if (!tracks || tracks.length === 0) {
+        console.warn("No tracks found for case:", caseId);
+        showInfoMessage("No tracks found for the selected case. Showing default visualization.");
+        hideLoadingOverlay();
+        showDefaultVisualization();
+        return;
+      }
+      
       // Update track dropdown
       let trackSelector = d3.select("#trackSelector");
       trackSelector.selectAll("option").remove();
@@ -377,11 +907,17 @@ function updateCaseWithDataAPI(caseId) {
         .enter()
         .append("option")
         .attr("value", d => d.tid)
-        .text(d => d.tname);
+        .text(d => d.tname || `Track ${d.tid}`);
 
       // On track change
       trackSelector.on("change", function() {
-        if (playing) pausePlayback();
+        if (playing) {
+          playing = false;
+          if (timer) {
+            clearTimeout(timer);
+            timer = null;
+          }
+        }
         updateChartWithDataAPI(this.value);
       });
 
@@ -390,7 +926,9 @@ function updateCaseWithDataAPI(caseId) {
         trackSelector.property("value", tracks[0].tid);
         updateChartWithDataAPI(tracks[0].tid);
       } else {
-        d3.select("#chart").html("No track data available for this case.");
+        showInfoMessage("No track data available for this case. Showing default visualization.");
+        hideLoadingOverlay();
+        showDefaultVisualization();
       }
 
       // Load labs in the background
@@ -401,11 +939,14 @@ function updateCaseWithDataAPI(caseId) {
         })
         .catch(error => {
           console.error("Error loading lab data:", error);
+          hideLoadingOverlay();
         });
     })
     .catch(error => {
       console.error("Error loading tracks for case:", error);
-      d3.select("#chart").html(`Error loading tracks: ${error.message}`);
+      showErrorMessage(`Error loading tracks: ${error.message}`);
+      hideLoadingOverlay();
+      showDefaultVisualization();
     });
 }
 
@@ -451,7 +992,21 @@ function updateLabTable(labs) {
 // 4) UPDATE CHART USING DATA API
 // ----------------------------------------------------------
 function updateChartWithDataAPI(tid) {
-  if (playing) pausePlayback();
+  console.log("updateChartWithDataAPI called with tid:", tid);
+  
+  if (!tid || tid === 'undefined') {
+    console.warn("Invalid track ID, using default visualization instead");
+    showDefaultVisualization();
+    return;
+  }
+  
+  if (playing) {
+    playing = false;
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
+  }
   currentTime = 0;
   anomalies = []; // Reset anomalies
 
@@ -461,6 +1016,7 @@ function updateChartWithDataAPI(tid) {
   // Show loading indicator
   showLoadingOverlay('Loading chart data...');
 
+  try {
   // Set up main SVG with responsive sizing
   const svg = d3.select("#chart")
     .append("svg")
@@ -471,15 +1027,26 @@ function updateChartWithDataAPI(tid) {
     .append("g")
     .attr("transform", `translate(${margin.left},${margin.top})`);
 
-  // Add title
+    // Add title with improved styling
   svg.append("text")
     .attr("class", "chart-title")
     .attr("x", width / 2)
-    .attr("y", -margin.top / 2)
+      .attr("y", -margin.top / 2 + 5) // Adjust position slightly
     .attr("text-anchor", "middle")
-    .style("font-size", "16px")
-    .style("font-weight", "bold")
-    .text("Biosignals Time Series");
+      .attr("dominant-baseline", "central")
+      .text("Patient Biosignal Monitoring");
+      
+    // Add track name as subtitle if available
+    const trackName = d3.select("#trackSelector option:checked").text();
+    if (trackName) {
+      svg.append("text")
+        .attr("class", "chart-subtitle")
+        .attr("x", width / 2)
+        .attr("y", -margin.top / 2 + 30) // Position below main title
+        .attr("text-anchor", "middle")
+        .attr("dominant-baseline", "central")
+        .text(trackName);
+    }
 
   // Add clip path
   svg.append("defs").append("clipPath")
@@ -487,6 +1054,10 @@ function updateChartWithDataAPI(tid) {
     .append("rect")
     .attr("width", width)
     .attr("height", height);
+
+    // Add background grid placeholder - actual grid will be added after scales are defined
+    const gridG = svg.append("g")
+      .attr("class", "grid-lines");
 
   const chartG = svg.append("g")
     .attr("clip-path", "url(#clip)");
@@ -498,199 +1069,235 @@ function updateChartWithDataAPI(tid) {
   // Fetch signal data with optimized loading
   window.dataAPI.getSignalData(tid, startTime, endTime)
     .then(data => {
+        try {
+          // Check if data is valid - if not, fall back to default visualization
+          if (!data || !Array.isArray(data) || data.length === 0) {
+            console.warn("No data received for track, showing default visualization");
+            hideLoadingOverlay();
+            showDefaultVisualization();
+            return;
+          }
+          
       // Store globally for reference
       window.currentTrackData = data;
 
       // Compute domain with a bit of padding
       const timeExtent = d3.extent(data, d => d.time);
-      
-      // If we have min/max values in our dataset, use them for more accurate visualization
-      let valueMin, valueMax;
-      if (data.length > 0 && 'minValue' in data[0] && 'maxValue' in data[0]) {
-        valueMin = d3.min(data, d => d.minValue);
-        valueMax = d3.max(data, d => d.maxValue);
-      } else {
-        // Fall back to just using the average values
-        const valueExtent = d3.extent(data, d => d.value);
-        valueMin = valueExtent[0];
-        valueMax = valueExtent[1];
-      }
-      
-      const valuePadding = (valueMax - valueMin) * 0.1;
+          
+          // If we have min/max values in our dataset, use them for more accurate visualization
+          let valueMin, valueMax;
+          if ('minValue' in data[0] && 'maxValue' in data[0]) {
+            valueMin = d3.min(data, d => d.minValue);
+            valueMax = d3.max(data, d => d.maxValue);
+          } else {
+            // Fall back to just using the average values
+      const valueExtent = d3.extent(data, d => d.value);
+            valueMin = valueExtent[0];
+            valueMax = valueExtent[1];
+          }
+          
+          const valuePadding = (valueMax - valueMin) * 0.1;
 
       const xScale = d3.scaleLinear()
         .range([0, width])
-        .domain([timeExtent[0], timeExtent[1]]);
-
+            .domain([timeExtent[0], timeExtent[1]]);
+      
       const yScale = d3.scaleLinear()
         .range([height, 0])
-        .domain([valueMin - valuePadding, valueMax + valuePadding]);
+            .domain([valueMin - valuePadding, valueMax + valuePadding]);
 
-      // Save scales globally for updates
-      window.mainXScale = xScale;
-      window.mainYScale = yScale;
-      
-      // Check if we're dealing with a large dataset
-      const isLargeDataset = data.length > 1000;
+          // Save scales globally for updates
+          window.mainXScale = xScale;
+          window.mainYScale = yScale;
+          
+          // Now add the grid lines with the defined scales
+          gridG.selectAll("*").remove(); // Clear any existing grid
+          
+          // Add X grid lines
+          gridG.append("g")
+            .attr("class", "grid x-grid")
+        .attr("transform", `translate(0,${height})`)
+            .call(d3.axisBottom(xScale)
+              .tickSize(-height)
+              .tickFormat("")
+            );
 
-      // Create line generator
+          // Add Y grid lines
+          gridG.append("g")
+            .attr("class", "grid y-grid")
+        .call(d3.axisLeft(yScale)
+          .tickSize(-width)
+          .tickFormat("")
+            );
+          
+          // Check if we're dealing with a large dataset
+          const isLargeDataset = data.length > 1000;
+
+          // Create line generator with smoothing
       const line = d3.line()
         .x(d => xScale(d.time))
         .y(d => yScale(d.value))
-        .curve(d3.curveMonotoneX); // smoother curve
+            .curve(d3.curveCatmullRom.alpha(0.5)); // smoother curve
 
-      // Add the line path - with proper rendering strategy based on dataset size
-      if (isLargeDataset && 'minValue' in data[0] && 'maxValue' in data[0]) {
-        // For large datasets, add a range area to show data variation
-        const area = d3.area()
-          .x(d => xScale(d.time))
-          .y0(d => yScale(d.minValue))
-          .y1(d => yScale(d.maxValue))
-          .curve(d3.curveMonotoneX);
-          
-        chartG.append("path")
-          .datum(data)
-          .attr("class", "range-area")
-          .attr("fill", "rgba(66, 133, 244, 0.2)")
-          .attr("d", area);
-          
-        // Add the main line (mean values)
-        chartG.append("path")
-          .datum(data)
-          .attr("class", "line")
-          .attr("fill", "none")
-          .attr("stroke", "#4285F4")
-          .attr("stroke-width", 1.5)
-          .attr("d", line);
-      } else {
-        // Standard line rendering for smaller datasets
-        chartG.append("path")
-          .datum(data)
-          .attr("class", "line")
-          .attr("fill", "none")
-          .attr("stroke", "#4285F4")
-          .attr("stroke-width", 1.5)
-          .attr("d", line);
-      }
+          // Add the line path - with proper rendering strategy based on dataset size
+          if (isLargeDataset && 'minValue' in data[0] && 'maxValue' in data[0]) {
+            // For large datasets, add a range area to show data variation
+            const area = d3.area()
+              .x(d => xScale(d.time))
+              .y0(d => yScale(d.minValue))
+              .y1(d => yScale(d.maxValue))
+              .curve(d3.curveCatmullRom.alpha(0.5));
+              
+            chartG.append("path")
+              .datum(data)
+              .attr("class", "range-area")
+              .attr("fill", "rgba(66, 133, 244, 0.2)")
+              .attr("d", area);
+              
+            // Add the main line (mean values)
+      chartG.append("path")
+        .datum(data)
+        .attr("class", "line")
+        .attr("fill", "none")
+              .attr("stroke", "#4285F4")
+              .attr("stroke-width", 2)
+        .attr("d", line);
+          } else {
+            // Standard line rendering for smaller datasets
+            chartG.append("path")
+              .datum(data)
+              .attr("class", "line")
+              .attr("fill", "none")
+              .attr("stroke", "#4285F4")
+              .attr("stroke-width", 2)
+              .attr("d", line);
+          }
 
-      // Add a vertical line to visualize current time
-      chartG.append("line")
-        .attr("class", "time-marker")
-        .attr("y1", 0)
-        .attr("y2", height)
-        .attr("x1", xScale(currentTime))
-        .attr("x2", xScale(currentTime))
-        .attr("stroke", colors.timeMarker)
-        .attr("stroke-width", 1)
-        .attr("stroke-dasharray", "4 4");
+          // Add a vertical line to visualize current time
+          chartG.append("line")
+            .attr("class", "time-marker")
+            .attr("y1", 0)
+            .attr("y2", height)
+            .attr("x1", xScale(timeExtent[0]))
+            .attr("x2", xScale(timeExtent[0]))
+            .attr("stroke", "rgba(0, 0, 0, 0.6)")
+            .attr("stroke-width", 2)
+            .attr("stroke-dasharray", "4,4");
 
-      // Save for use in updatePlayback
-      window.timeMarker = chartG.select(".time-marker");
+          // Add axes with improved styling
+          const xAxis = d3.axisBottom(xScale)
+            .tickSizeOuter(0)
+            .tickPadding(10);
+            
+          const yAxis = d3.axisLeft(yScale)
+            .tickSizeOuter(0)
+            .tickPadding(10);
 
-      // Add axes
-      const xAxis = d3.axisBottom(xScale);
-      const yAxis = d3.axisLeft(yScale);
-      
-      // Add x-axis
-      svg.append("g")
-        .attr("class", "x-axis")
-        .attr("transform", `translate(0,${height})`)
-        .call(xAxis);
-        
-      // Add y-axis
-      svg.append("g")
-        .attr("class", "y-axis")
-        .call(yAxis);
-        
-      // Add x-axis label
-      svg.append("text")
-        .attr("class", "x-label")
-        .attr("x", width / 2)
-        .attr("y", height + 35)
-        .attr("text-anchor", "middle")
-        .text("Time (seconds)");
-        
-      // Add y-axis label
-      svg.append("text")
-        .attr("class", "y-label")
-        .attr("transform", "rotate(-90)")
-        .attr("x", -height / 2)
-        .attr("y", -40)
-        .attr("text-anchor", "middle")
-        .text("Value");
+          // X-axis
+          svg.append("g")
+            .attr("class", "x-axis")
+            .attr("transform", `translate(0,${height})`)
+            .call(xAxis);
+
+          // X-axis label
+          svg.append("text")
+            .attr("class", "x-label")
+            .attr("x", width / 2)
+            .attr("y", height + 40)
+            .attr("text-anchor", "middle")
+            .text("Time (seconds)");
+
+          // Y-axis
+          svg.append("g")
+            .attr("class", "y-axis")
+            .call(yAxis);
+
+          // Y-axis label
+          svg.append("text")
+            .attr("class", "y-label")
+            .attr("transform", "rotate(-90)")
+            .attr("x", -height / 2)
+            .attr("y", -45)
+            .attr("text-anchor", "middle")
+            .text("Value");
 
       // Compute moving averages
+          try {
       computeMovingAverages(data);
+          } catch (error) {
+            console.error("Error computing moving averages:", error);
+          }
       
-      // Add 1-minute moving average line
-      const ma1Line = d3.line()
+          // Add 1-minute moving average line if we have computed values
+          if (data.some(d => d.ma1min !== undefined)) {
+            const ma1Line = d3.line()
         .x(d => xScale(d.time))
         .y(d => yScale(d.ma1min))
-        .defined(d => !isNaN(d.ma1min))
+              .defined(d => !isNaN(d.ma1min))
         .curve(d3.curveMonotoneX);
-        
+
       const ma1Path = chartG.append("path")
-        .datum(data.filter(d => d.ma1min !== undefined))
+              .datum(data.filter(d => d.ma1min !== undefined))
         .attr("class", "ma1min-line")
         .attr("fill", "none")
         .attr("stroke", colors.movingAvg1)
-        .attr("stroke-width", 1.5)
+              .attr("stroke-width", 1.5)
         .attr("stroke-dasharray", "5,5")
-        .attr("d", ma1Line);
-        
-      // Add 5-minute moving average line
-      const ma5Line = d3.line()
+              .attr("d", ma1Line);
+              
+            // Store reference
+            window.ma1Path = ma1Path;
+            // Initially hide
+            ma1Path.style("display", "none");
+          }
+          
+          // Add 5-minute moving average line if we have computed values
+          if (data.some(d => d.ma5min !== undefined)) {
+            const ma5Line = d3.line()
         .x(d => xScale(d.time))
         .y(d => yScale(d.ma5min))
-        .defined(d => !isNaN(d.ma5min))
+              .defined(d => !isNaN(d.ma5min))
         .curve(d3.curveMonotoneX);
-        
+
       const ma5Path = chartG.append("path")
-        .datum(data.filter(d => d.ma5min !== undefined))
+              .datum(data.filter(d => d.ma5min !== undefined))
         .attr("class", "ma5min-line")
         .attr("fill", "none")
         .attr("stroke", colors.movingAvg5)
-        .attr("stroke-width", 1.5)
-        .attr("stroke-dasharray", "1,3")
-        .attr("d", ma5Line);
-        
-      // Store references for toggling
-      window.ma1Path = ma1Path;
-      window.ma5Path = ma5Path;
-      
-      // Initially hide MA lines
-      ma1Path.style("display", "none");
-      ma5Path.style("display", "none");
-      
-      // Add event handler for the moving average dropdown
+              .attr("stroke-width", 1.5)
+              .attr("stroke-dasharray", "1,3")
+              .attr("d", ma5Line);
+              
+            // Store reference
+            window.ma5Path = ma5Path;
+            // Initially hide
+            ma5Path.style("display", "none");
+          }
+          
+          // Add event handler for the moving average dropdown if not already added
       d3.select("#MAdropdownMenu").on("change", function() {
         const value = this.value;
-        window.ma1Path.style("display", value === "1min" || value === "both" ? "block" : "none");
-        window.ma5Path.style("display", value === "5min" || value === "both" ? "block" : "none");
-      });
-      
-      // Add sample annotations (in real app, fetch this from an API)
-      const annotations = [
-        { time: timeExtent[0] + (timeExtent[1] - timeExtent[0]) * 0.2, type: "Phase Start", label: "Induction", critical: false },
-        { time: timeExtent[0] + (timeExtent[1] - timeExtent[0]) * 0.4, type: "Medication", label: "Propofol", critical: false },
-        { time: timeExtent[0] + (timeExtent[1] - timeExtent[0]) * 0.6, type: "Event", label: "Intubation", critical: true },
-        { time: timeExtent[0] + (timeExtent[1] - timeExtent[0]) * 0.8, type: "Alert", label: "BP Drop", critical: true }
-      ];
-      
-      // Add color based on type
-      annotations.forEach(d => {
-        switch(d.type) {
-          case "Phase Start": d.baseColor = "#4CAF50"; break; // Green
-          case "Medication": d.baseColor = "#2196F3"; break; // Blue
-          case "Event": d.baseColor = "#FF9800"; break; // Orange
-          case "Alert": d.baseColor = "#F44336"; break; // Red
-          default: d.baseColor = "#9E9E9E"; // Gray
-        }
-      });
+            if (window.ma1Path) window.ma1Path.style("display", value === "1min" || value === "both" ? "block" : "none");
+            if (window.ma5Path) window.ma5Path.style("display", value === "5min" || value === "both" ? "block" : "none");
+          });
+          
+          // Generate data-driven annotations
+          const annotations = generateDataDrivenAnnotations(data, timeExtent);
+          
+          // Add color based on type
+          annotations.forEach(d => {
+            switch(d.type) {
+              case "Phase Start": d.baseColor = "#4CAF50"; break; // Green
+              case "Medication": d.baseColor = "#2196F3"; break; // Blue
+              case "Event": d.baseColor = "#FF9800"; break; // Orange
+              case "Alert": d.baseColor = "#F44336"; break; // Red
+              default: d.baseColor = "#9E9E9E"; // Gray
+            }
+          });
 
-      // Add annotation markers
-      const annotationGroup = svg.append("g")
-        .attr("class", "annotations");
+          // Add annotation markers
+          const annotationGroup = svg.append("g")
+            .attr("class", "annotations");
 
       currentAnnotationGroup = annotationGroup;
         
@@ -699,7 +1306,13 @@ function updateChartWithDataAPI(tid) {
         .enter()
         .append("circle")
         .attr("cx", d => xScale(d.time))
-        .attr("cy", 0)
+        .attr("cy", d => {
+          // Calculate a proper y position based on the data value at that time
+          const closestPoint = data.reduce((prev, curr) => {
+            return Math.abs(curr.time - d.time) < Math.abs(prev.time - d.time) ? curr : prev;
+          });
+          return yScale(closestPoint.value);
+        })
         .attr("r", 6)
         .attr("fill", d => d.baseColor)
         .attr("stroke", "#fff")
@@ -710,9 +1323,11 @@ function updateChartWithDataAPI(tid) {
             .duration(200)
             .style("opacity", 0.9);
           tooltip.html(`
-            <strong>${d.type}</strong><br/>
-            ${d.label}<br/>
-            Time: ${d.time.toFixed(1)}s
+                <div class="tooltip-content">
+                  <div class="tooltip-header">${d.type}</div>
+                  <div class="tooltip-text">${d.label}</div>
+                  <div class="tooltip-text">Time: ${d.time.toFixed(1)}s</div>
+                </div>
           `)
             .style("left", (event.pageX + 10) + "px")
             .style("top", (event.pageY - 28) + "px");
@@ -743,56 +1358,12 @@ function updateChartWithDataAPI(tid) {
           window.location.href = `crisisAnalysis.html?caseId=${caseId}&centerTime=${d.time}&start=${d.time-30}&end=${d.time+30}`;
         });
 
-      // Add hoverable data points (not all, to avoid cluttering)
-      const sampleInterval = Math.ceil(data.length / 50); // Show about 50 points
-      chartG.selectAll(".data-point")
-        .data(data.filter((d, i) => i % sampleInterval === 0))
-        .enter()
-        .append("circle")
-        .attr("class", "data-point")
-        .attr("cx", d => xScale(d.time))
-        .attr("cy", d => yScale(d.value))
-        .attr("r", 3)
-        .attr("fill", colors.mainLine)
-        .attr("stroke", "#fff")
-        .attr("stroke-width", 1)
-        .attr("opacity", 0.7)
-        .on("mouseover", function(event, d) {
-          // Enlarge point and show tooltip
-          d3.select(this)
-            .transition()
-            .duration(200)
-            .attr("r", 5)
-            .attr("opacity", 1);
-          
-          tooltip.transition()
-            .duration(200)
-            .style("opacity", 0.9);
-          tooltip.html(`
-            Time: ${d.time.toFixed(1)}s<br/>
-            Value: ${d.value.toFixed(2)}
-          `)
-            .style("left", (event.pageX + 10) + "px")
-            .style("top", (event.pageY - 28) + "px");
-        })
-        .on("mouseout", function() {
-          // Restore point and hide tooltip
-          d3.select(this)
-            .transition()
-            .duration(200)
-            .attr("r", 3)
-            .attr("opacity", 0.7);
-          
-          tooltip.transition()
-            .duration(500)
-            .style("opacity", 0);
-        });
-
       // Update the scrubber slider range
       d3.select("#scrubber")
         .attr("min", timeExtent[0])
         .attr("max", timeExtent[1])
         .attr("step", (timeExtent[1] - timeExtent[0]) / 1000)
+            .property("value", timeExtent[0])
         .on("input", function() {
           currentTime = +this.value;
           updatePlayback();
@@ -801,68 +1372,110 @@ function updateChartWithDataAPI(tid) {
       // Add legend
       const legend = svg.append("g")
         .attr("class", "legend")
-        .attr("transform", `translate(${width - 150}, 10)`);
+            .attr("transform", `translate(${width - 120}, 20)`);
+            
+          // Add background rectangle for better visibility
+          legend.append("rect")
+            .attr("width", 100)
+            .attr("height", 80)
+            .attr("fill", "rgba(255, 255, 255, 0.9)")
+            .attr("rx", 5)
+            .attr("ry", 5)
+            .attr("stroke", "#ddd")
+            .attr("stroke-width", 1);
+            
+          // Legend title
+          legend.append("text")
+            .attr("x", 50)
+            .attr("y", 15)
+            .attr("text-anchor", "middle")
+            .attr("font-weight", "bold")
+            .style("font-size", "10px")
+            .text("Legend");
         
       // Raw data
       legend.append("line")
-        .attr("x1", 0)
-        .attr("y1", 0)
-        .attr("x2", 20)
-        .attr("y2", 0)
-        .attr("stroke", colors.mainLine)
+            .attr("x1", 10)
+            .attr("y1", 30)
+            .attr("x2", 30)
+            .attr("y2", 30)
+            .attr("stroke", colors.mainLine || "#4285F4")
         .attr("stroke-width", 2.5);
         
       legend.append("text")
-        .attr("x", 25)
-        .attr("y", 4)
+            .attr("x", 35)
+            .attr("y", 33)
         .text("Raw Data")
         .style("font-size", "10px");
         
       // 1-min MA
       legend.append("line")
-        .attr("x1", 0)
-        .attr("y1", 15)
-        .attr("x2", 20)
-        .attr("y2", 15)
-        .attr("stroke", colors.movingAvg1)
+            .attr("x1", 10)
+            .attr("y1", 50)
+            .attr("x2", 30)
+            .attr("y2", 50)
+            .attr("stroke", colors.movingAvg1 || "#FF9800")
         .attr("stroke-width", 2)
         .attr("stroke-dasharray", "5,5");
         
       legend.append("text")
-        .attr("x", 25)
-        .attr("y", 19)
+            .attr("x", 35)
+            .attr("y", 53)
         .text("1-min MA")
         .style("font-size", "10px");
         
       // 5-min MA
       legend.append("line")
-        .attr("x1", 0)
-        .attr("y1", 30)
-        .attr("x2", 20)
-        .attr("y2", 30)
-        .attr("stroke", colors.movingAvg5)
+            .attr("x1", 10)
+            .attr("y1", 70)
+            .attr("x2", 30)
+            .attr("y2", 70)
+            .attr("stroke", colors.movingAvg5 || "#4CAF50")
         .attr("stroke-width", 2)
-        .attr("stroke-dasharray", "10,5");
+            .attr("stroke-dasharray", "1,3");
         
       legend.append("text")
-        .attr("x", 25)
-        .attr("y", 34)
+            .attr("x", 35)
+            .attr("y", 73)
         .text("5-min MA")
         .style("font-size", "10px");
         
       // Update the overview timeline
       if (typeof drawOverview === "function") {
+            try {
         drawOverview();
+            } catch (err) {
+              console.error("Error drawing overview:", err);
+            }
       }
+          
+          // Initialize current time
+          currentTime = timeExtent[0];
       
       // Hide loading indicator
       hideLoadingOverlay();
+        } catch (innerError) {
+          console.error("Error processing chart data:", innerError);
+          hideLoadingOverlay();
+          showErrorMessage(`Error processing chart data: ${innerError.message}`);
+          // Fall back to default visualization
+          showDefaultVisualization();
+        }
     })
     .catch(error => {
       console.error("Error loading signal data:", error);
-      d3.select("#chart").html(`Error loading data: ${error.message}`);
       hideLoadingOverlay();
-    });
+        showErrorMessage(`Error loading signal data: ${error.message}`);
+        // Fall back to default visualization
+        showDefaultVisualization();
+      });
+  } catch (error) {
+    console.error("Error creating chart:", error);
+    hideLoadingOverlay();
+    showErrorMessage(`Error creating chart: ${error.message}`);
+    // Fall back to default visualization
+    showDefaultVisualization();
+  }
 }
 
 // Helper function to compute moving averages efficiently
@@ -935,12 +1548,12 @@ function setMainChartDomain(newDomain) {
   
   // Schedule the update for the next animation frame
   window.pendingChartUpdate = window.requestAnimationFrame(() => {
-    // Update the x-axis
-    d3.select(".x-axis")
-      .call(d3.axisBottom(currentXScale).ticks(10).tickFormat(d => d + "s"));
-    
-    // Update all elements that depend on the x scale
-    updateChartElements();
+  // Update the x-axis
+  d3.select(".x-axis")
+    .call(d3.axisBottom(currentXScale).ticks(10).tickFormat(d => d + "s"));
+  
+  // Update all elements that depend on the x scale
+  updateChartElements();
     
     // Clear the pending update flag
     window.pendingChartUpdate = null;
@@ -989,8 +1602,8 @@ function updateChartElements() {
 
   // Create optimized line generator
   const line = d3.line()
-    .x(d => currentXScale(d.time))
-    .y(d => currentYScale(d.value))
+      .x(d => currentXScale(d.time))
+      .y(d => currentYScale(d.value))
     .curve(d3.curveMonotoneX);
 
   // Update main line without transition for better performance
@@ -1005,23 +1618,23 @@ function updateChartElements() {
   if (ma1Line.style("display") !== "none") {
     ma1Line
       .datum(visibleData.filter(d => d.ma1min !== undefined))
-      .attr("d", d3.line()
-        .x(d => currentXScale(d.time))
-        .y(d => currentYScale(d.ma1min))
+    .attr("d", d3.line()
+      .x(d => currentXScale(d.time))
+      .y(d => currentYScale(d.ma1min))
         .defined(d => !isNaN(d.ma1min))
-        .curve(d3.curveMonotoneX)
-      );
+      .curve(d3.curveMonotoneX)
+    );
   }
   
   if (ma5Line.style("display") !== "none") {
     ma5Line
       .datum(visibleData.filter(d => d.ma5min !== undefined))
-      .attr("d", d3.line()
-        .x(d => currentXScale(d.time))
-        .y(d => currentYScale(d.ma5min))
+    .attr("d", d3.line()
+      .x(d => currentXScale(d.time))
+      .y(d => currentYScale(d.ma5min))
         .defined(d => !isNaN(d.ma5min))
-        .curve(d3.curveMonotoneX)
-      );
+      .curve(d3.curveMonotoneX)
+    );
   }
   
   // Update time marker
@@ -1053,42 +1666,100 @@ function updateChartElements() {
   }
 }
 
-// Loading overlay functions
+// Enhanced loading overlay function
 function showLoadingOverlay(message = 'Loading...') {
-  if (window.dataAPI) return; // Use the data API's built-in loading indicator if available
+  const overlay = document.getElementById('loadingOverlay');
   
-  let overlay = document.getElementById('loadingOverlay');
   if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'loadingOverlay';
-    overlay.innerHTML = `
+    // Create loading overlay if it doesn't exist
+    const newOverlay = document.createElement('div');
+    newOverlay.id = 'loadingOverlay';
+    
+    newOverlay.innerHTML = `
       <div class="loading-spinner"></div>
+      <div class="loading-text">Loading</div>
       <div class="loading-message">${message}</div>
     `;
-    overlay.style.position = 'fixed';
-    overlay.style.top = '0';
-    overlay.style.left = '0';
-    overlay.style.width = '100%';
-    overlay.style.height = '100%';
-    overlay.style.background = 'rgba(255, 255, 255, 0.8)';
-    overlay.style.display = 'flex';
-    overlay.style.flexDirection = 'column';
-    overlay.style.justifyContent = 'center';
-    overlay.style.alignItems = 'center';
-    overlay.style.zIndex = '9999';
-    document.body.appendChild(overlay);
+    
+    document.body.appendChild(newOverlay);
+    
+    // Force reflow/repaint before adding visible class
+    newOverlay.offsetHeight;
+    newOverlay.classList.add('visible');
   } else {
-    overlay.querySelector('.loading-message').textContent = message;
-    overlay.style.display = 'flex';
+    // Update existing overlay
+    const messageEl = overlay.querySelector('.loading-message');
+    if (messageEl) {
+      messageEl.textContent = message;
+    }
+    overlay.classList.add('visible');
   }
 }
 
+// Hide loading overlay with fade effect
 function hideLoadingOverlay() {
-  if (window.dataAPI) return; // Use the data API's built-in loading indicator if available
-  
   const overlay = document.getElementById('loadingOverlay');
   if (overlay) {
-    overlay.style.display = 'none';
+    overlay.classList.remove('visible');
+    
+    // Remove from DOM after animation completes
+    setTimeout(() => {
+      if (overlay.parentNode) {
+        overlay.parentNode.removeChild(overlay);
+      }
+    }, 300); // Match the CSS transition time
+  }
+}
+
+// Enhanced error message display
+function showErrorMessage(message) {
+  // Create error message element
+  const errorElement = document.createElement('div');
+  errorElement.className = 'error-message';
+  errorElement.innerHTML = `
+    <h3><i class="fas fa-exclamation-circle"></i> Error</h3>
+    <p>${message}</p>
+    <button onclick="location.reload()">Retry</button>
+  `;
+  
+  // Show in chart area
+  const chartEl = document.getElementById('chart');
+  if (chartEl) {
+    chartEl.innerHTML = '';
+    chartEl.appendChild(errorElement);
+  } else {
+    // As fallback, append to body
+    document.body.appendChild(errorElement);
+  }
+}
+
+// Show info message
+function showInfoMessage(message, targetElement = 'chart') {
+  const infoElement = document.createElement('div');
+  infoElement.className = 'info-message';
+  infoElement.innerHTML = `<i class="fas fa-info-circle"></i> ${message}`;
+  
+  const targetEl = document.getElementById(targetElement);
+  if (targetEl) {
+    targetEl.innerHTML = '';
+    targetEl.appendChild(infoElement);
+  }
+}
+
+// Show no data message
+function showNoDataMessage(title, message, targetElement = 'chart') {
+  const noDataElement = document.createElement('div');
+  noDataElement.className = 'no-data-message';
+  noDataElement.innerHTML = `
+    <i class="fas fa-chart-area"></i>
+    <h3>${title}</h3>
+    <p>${message}</p>
+  `;
+  
+  const targetEl = document.getElementById(targetElement);
+  if (targetEl) {
+    targetEl.innerHTML = '';
+    targetEl.appendChild(noDataElement);
   }
 }
 
@@ -1097,20 +1768,522 @@ function updateCase(caseId) {
   updateCaseWithDataAPI(caseId);
 }
 
-// Display a user-friendly error message
-function showErrorMessage(message) {
-  // Hide loading overlay if it's showing
-  hideLoadingOverlay();
+// Load case hierarchy data
+async function loadCaseHierarchy() {
+    // This function needs to ensure that:
+    // 1. We properly display loading states
+    // 2. We try multiple sources for the case hierarchy file
+    // 3. We fall back gracefully with proper error handling
+    // 4. We update the UI appropriately
+
+    try {
+        console.log("Loading case hierarchy...");
+        
+        // Show loading indicator for case categories
+        document.getElementById('operationCategory').innerHTML = '<option value="">Loading categories...</option>';
+        document.getElementById('complexityLevel').innerHTML = '<option value="">Select Level</option>';
+        document.getElementById('complexityLevel').disabled = true;
+        document.getElementById('caseSelector').innerHTML = '<option value="">Select Case</option>';
+        document.getElementById('caseSelector').disabled = true;
+        
+        showLoadingOverlay("Loading case categories...");
+        
+        // Fetch the case hierarchy
+        let caseHierarchy = {};
+        let loaded = false;
+        
+        // First try loading from root directory
+        try {
+            console.log("Trying to load case hierarchy from root directory");
+            const response = await fetch('./case_hierarchy.json');
+            if (response.ok) {
+                const data = await response.json();
+                caseHierarchy = data;
+                loaded = true;
+                console.log("Loaded case hierarchy from root directory");
+            } else {
+                console.warn("Failed to load case hierarchy from root, trying processed directory");
+            }
+        } catch (rootError) {
+            console.warn("Error loading from root:", rootError);
+        }
+        
+        // If that fails, try loading from the processed directory
+        if (!loaded) {
+            try {
+                console.log("Trying to load case hierarchy from processed directory");
+                const response = await fetch('./data/processed/case_hierarchy.json');
+                if (response.ok) {
+                    const data = await response.json();
+                    caseHierarchy = data;
+                    loaded = true;
+                    console.log("Loaded case hierarchy from processed directory");
+                } else {
+                    console.warn("Failed to load case hierarchy from processed directory");
+                }
+            } catch (processedError) {
+                console.warn("Error loading from processed directory:", processedError);
+            }
+        }
+        
+        // If still not loaded, try loading from the data directory directly
+        if (!loaded) {
+            try {
+                console.log("Trying to load case hierarchy from data directory");
+                const response = await fetch('./data/case_hierarchy.json');
+                if (response.ok) {
+                    const data = await response.json();
+                    caseHierarchy = data;
+                    loaded = true;
+                    console.log("Loaded case hierarchy from data directory");
+                } else {
+                    console.warn("Failed to load case hierarchy from data directory");
+                }
+            } catch (dataError) {
+                console.warn("Error loading from data directory:", dataError);
+            }
+        }
+        
+        // If still not loaded, use a default hierarchy
+        if (!loaded) {
+            console.warn("Using default case hierarchy");
+            caseHierarchy = {
+                "general": {
+                    "Low": ["1", "2", "3", "4", "5"],
+                    "Medium": ["6", "7", "8", "9", "10"],
+                    "High": ["11", "12", "13", "14", "15"]
+                },
+                "cardiac": {
+                    "Low": ["16", "17", "18", "19", "20"],
+                    "Medium": ["21", "22", "23", "24", "25"],
+                    "High": ["26", "27", "28", "29", "30"]
+                },
+                "thoracic": {
+                    "Low": ["31", "32", "33", "34", "35"],
+                    "Medium": ["36", "37", "38", "39", "40"],
+                    "High": ["41", "42", "43", "44", "45"]
+                }
+            };
+            loaded = true;
+        }
+        
+        // Ensure we have valid data
+        if (!loaded || Object.keys(caseHierarchy).length === 0) {
+            throw new Error("Failed to load or create case hierarchy");
+        }
+        
+        // Store the case hierarchy in the window scope
+        window.caseHierarchy = caseHierarchy;
+        console.log("Case hierarchy stored in window scope:", window.caseHierarchy);
+        
+        // Reset and populate operation categories
+        const categorySelect = document.getElementById('operationCategory');
+        categorySelect.innerHTML = '<option value="">Select Category</option>';
+        
+        // Get sorted operation types - capitalize first letter of each word
+        const operationTypes = Object.keys(caseHierarchy).sort().map(category => {
+            return {
+                value: category,
+                label: category
+                    .split('_')
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                    .join(' ')
+            };
+        });
+        
+        console.log(`Found ${operationTypes.length} operation types`);
+        
+        // Add each operation type as an option
+        operationTypes.forEach(category => {
+            const option = document.createElement('option');
+            option.value = category.value;
+            option.textContent = category.label;
+            categorySelect.appendChild(option);
+        });
+        
+        // Enable the category select
+        categorySelect.disabled = false;
+        
+        // Remove any existing event listeners to prevent duplicates
+        categorySelect.removeEventListener('change', updateComplexityOptions);
+        document.getElementById('complexityLevel').removeEventListener('change', updateCaseOptions);
+        
+        // Add event listeners
+        categorySelect.addEventListener('change', updateComplexityOptions);
+        document.getElementById('complexityLevel').addEventListener('change', updateCaseOptions);
+        
+        console.log("Case hierarchy loaded successfully with", operationTypes.length, "operation types");
+        
+        hideLoadingOverlay();
+        
+        return caseHierarchy;
+    } catch (error) {
+        console.error('Error loading case hierarchy:', error);
+        document.getElementById('operationCategory').innerHTML = 
+            '<option value="">Error loading categories</option>';
+        hideLoadingOverlay();
+        showErrorMessage("Failed to load operation categories. Loading default data.");
+        loadDefaultCaseFromDataset();
+        return null;
+    }
+}
+
+// Update complexity options based on selected category
+function updateComplexityOptions() {
+    const category = document.getElementById('operationCategory').value;
+    const complexitySelect = document.getElementById('complexityLevel');
+    const caseSelect = document.getElementById('caseSelector');
+    
+    console.log("Updating complexity options for category:", category);
+    
+    // Reset case selector
+    caseSelect.innerHTML = '<option value="">Select Case</option>';
+    caseSelect.disabled = true;
+    
+    // Check if caseHierarchy exists
+    if (!window.caseHierarchy) {
+        console.error("Case hierarchy not found");
+        complexitySelect.innerHTML = '<option value="">Error: No data available</option>';
+        complexitySelect.disabled = true;
+        return;
+    }
+    
+    if (!category || !window.caseHierarchy[category]) {
+        console.log("No category selected or no data for category");
+        complexitySelect.innerHTML = '<option value="">Select Level</option>';
+        complexitySelect.disabled = true;
+        return;
+    }
+    
+    // Get available complexity levels for this category
+    const availableLevels = Object.keys(window.caseHierarchy[category]);
+    console.log("Available complexity levels:", availableLevels);
+    
+    // Reset and populate complexity options
+    complexitySelect.innerHTML = '<option value="">Select Level</option>';
+    availableLevels.forEach(level => {
+        const option = document.createElement('option');
+        option.value = level;
+        option.textContent = level;
+        complexitySelect.appendChild(option);
+    });
+    
+    complexitySelect.disabled = false;
+    
+    // Auto-select first level if only one is available
+    if (availableLevels.length === 1) {
+        complexitySelect.value = availableLevels[0];
+        complexitySelect.dispatchEvent(new Event('change'));
+    }
+}
+
+// Update case options based on selected category and complexity
+function updateCaseOptions() {
+    const category = document.getElementById('operationCategory').value;
+    const complexity = document.getElementById('complexityLevel').value;
+    const caseSelect = document.getElementById('caseSelector');
+    
+    console.log("Updating case options for category:", category, "complexity:", complexity);
+    
+    // Reset case selector
+    caseSelect.innerHTML = '<option value="">Select Case</option>';
+    
+    if (!category || !complexity) {
+        caseSelect.disabled = true;
+        console.log("No category or complexity selected");
+        return;
+    }
+    
+    // Make sure caseHierarchy is available
+    if (!window.caseHierarchy) {
+        console.error("Case hierarchy not found. Loading default visualization.");
+        loadDefaultCaseFromDataset();
+        return;
+    }
+    
+    // Get cases for selected category and complexity
+    if (!window.caseHierarchy[category] || !window.caseHierarchy[category][complexity]) {
+        console.warn(`No cases found for ${category} - ${complexity}`);
+        caseSelect.innerHTML = '<option value="">No cases available</option>';
+        caseSelect.disabled = true;
+        return;
+    }
+    
+    const cases = window.caseHierarchy[category][complexity];
+    
+    if (!cases || cases.length === 0) {
+        console.warn(`Empty case list for ${category} - ${complexity}`);
+        caseSelect.innerHTML = '<option value="">No cases available</option>';
+        caseSelect.disabled = true;
+        return;
+    }
+    
+    console.log(`Found ${cases.length} cases for ${category} - ${complexity}`);
+    
+    // Show loading state
+    caseSelect.innerHTML = '<option value="">Loading cases...</option>';
+    caseSelect.disabled = true;
+    
+    // Load case details and add options for each case
+    Promise.resolve()
+        .then(() => {
+            // Try to fetch from processed directory first
+            return fetch('./data/processed/cases_processed.txt')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to load from processed directory');
+                    }
+                    return response.text();
+                })
+                .catch(() => {
+                    // If that fails, try the regular directory
+                    console.log("Trying to load from regular cases.txt");
+                    return fetch('./data/cases.txt')
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Failed to load from regular directory');
+                            }
+                            return response.text();
+                        });
+                });
+        })
+        .then(text => {
+            const lines = text.split('\n');
+            const headers = lines[0].split(',');
+            const caseidIndex = headers.indexOf('caseid');
+            const opnameIndex = headers.indexOf('opname');
+            
+            // Reset case selector for actual options
+            caseSelect.innerHTML = '<option value="">Select Case</option>';
+            let addedOptions = 0;
+            
+            // Add options for matching cases
+            cases.forEach(caseId => {
+                // Find the case data
+                for (let i = 1; i < lines.length; i++) {
+                    const values = lines[i].split(',');
+                    if (values.length <= caseidIndex) continue;
+                    
+                    if (values[caseidIndex] === caseId) {
+                        const option = document.createElement('option');
+                        option.value = caseId;
+                        
+                        // Display case ID and operation name if available
+                        let label = `Case ${caseId}`;
+                        if (opnameIndex >= 0 && values.length > opnameIndex && values[opnameIndex]) {
+                            const opname = values[opnameIndex].trim();
+                            if (opname.length > 30) {
+                                label += `: ${opname.substring(0, 30)}...`;
+                            } else {
+                                label += `: ${opname}`;
+                            }
+                        }
+                        
+                        option.textContent = label;
+                        caseSelect.appendChild(option);
+                        addedOptions++;
+                        break;
+                    }
+                }
+            });
+            
+            console.log(`Added ${addedOptions} case options to selector`);
+            
+            // If no options were added but we have case IDs, add them directly
+            if (addedOptions === 0 && cases.length > 0) {
+                console.log("No matching cases found in case details file, adding just the IDs");
+                cases.forEach(caseId => {
+                    const option = document.createElement('option');
+                    option.value = caseId;
+                    option.textContent = `Case ${caseId}`;
+                    caseSelect.appendChild(option);
+                    addedOptions++;
+                });
+            }
+            
+            // Enable/disable the selector based on whether we have options
+            if (addedOptions === 0) {
+                caseSelect.innerHTML = '<option value="">No cases available</option>';
+                caseSelect.disabled = true;
+            } else {
+                caseSelect.disabled = false;
+                
+                // Auto-select first case if only one is available
+                if (addedOptions === 1) {
+                    caseSelect.selectedIndex = 1;
+                    const event = new Event('change');
+                    caseSelect.dispatchEvent(event);
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading case details:', error);
+            
+            // Even if we can't load case details, still add the case IDs directly
+            if (cases.length > 0) {
+                console.log("Adding case IDs without details due to error");
+                caseSelect.innerHTML = '<option value="">Select Case</option>';
+                cases.forEach(caseId => {
+                    const option = document.createElement('option');
+                    option.value = caseId;
+                    option.textContent = `Case ${caseId}`;
+                    caseSelect.appendChild(option);
+                });
+                
+                caseSelect.disabled = false;
+            } else {
+                caseSelect.innerHTML = '<option value="">Error loading cases</option>';
+                caseSelect.disabled = true;
+            }
+        });
+}
+
+// Event handler for case selection
+function onCaseSelectChange(event) {
+  console.log("Case selection changed:", event.target.value);
   
-  // Create error message element
-  const errorMessage = `
-    <div class="error-message">
-      <h3>Error Loading Data</h3>
-      <p>${message}</p>
-      <button onclick="location.reload()">Retry</button>
-    </div>
-  `;
+  // Show loading indicator while we process
+  showLoadingOverlay("Loading selected case...");
   
-  // Show in the chart area
-  document.getElementById("chart").innerHTML = errorMessage;
+  const caseId = parseInt(event.target.value, 10);
+  if (!caseId || isNaN(caseId)) {
+    console.warn("Invalid case ID selected:", event.target.value);
+    hideLoadingOverlay();
+    showDefaultVisualization();
+    return;
+  }
+  
+  try {
+    console.log("Selected case ID:", caseId);
+    
+    // Highlight selected case in dropdown
+    const caseSelect = document.getElementById('caseSelector');
+    if (caseSelect) {
+      for (let i = 0; i < caseSelect.options.length; i++) {
+        if (parseInt(caseSelect.options[i].value, 10) === caseId) {
+          caseSelect.selectedIndex = i;
+          break;
+        }
+      }
+    }
+    
+    // Load the selected case
+    updateCaseWithDataAPI(caseId);
+  } catch (error) {
+    console.error("Error updating case:", error);
+    hideLoadingOverlay();
+    showErrorMessage("Failed to update case. Using default visualization instead.");
+    showDefaultVisualization();
+  }
+}
+
+// Generate data-driven annotations based on actual data points
+function generateDataDrivenAnnotations(data, timeExtent) {
+  // If no data, return empty annotations
+  if (!data || data.length === 0) {
+    return [];
+  }
+  
+  const annotations = [];
+  const timeRange = timeExtent[1] - timeExtent[0];
+  
+  // Find min, max, and significant changes in the data
+  const valueExtent = d3.extent(data, d => d.value);
+  const valueRange = valueExtent[1] - valueExtent[0];
+  
+  // Find the maximum point
+  const maxPoint = data.reduce((max, point) => point.value > max.value ? point : max, data[0]);
+  annotations.push({
+    time: maxPoint.time,
+    type: "Peak",
+    label: `Maximum Value: ${maxPoint.value.toFixed(1)}`,
+    critical: true,
+    baseColor: "#F44336" // Red
+  });
+  
+  // Find the minimum point
+  const minPoint = data.reduce((min, point) => point.value < min.value ? point : min, data[0]);
+  // Only add if significantly different from max
+  if (Math.abs(minPoint.value - maxPoint.value) > valueRange * 0.3) {
+    annotations.push({
+      time: minPoint.time,
+      type: "Low",
+      label: `Minimum Value: ${minPoint.value.toFixed(1)}`,
+      critical: false,
+      baseColor: "#2196F3" // Blue
+    });
+  }
+  
+  // Find significant changes (large slopes)
+  const derivatives = [];
+  for (let i = 5; i < data.length - 5; i += 5) {
+    const slope = (data[i + 5].value - data[i - 5].value) / (data[i + 5].time - data[i - 5].time);
+    derivatives.push({ time: data[i].time, slope: slope, value: data[i].value });
+  }
+  
+  // Find the point with the maximum positive change
+  if (derivatives.length > 0) {
+    const maxRise = derivatives.reduce((max, point) => point.slope > max.slope ? point : max, derivatives[0]);
+    if (maxRise.slope > valueRange / timeRange * 50) { // Significant rise
+      annotations.push({
+        time: maxRise.time,
+        type: "Rapid Increase",
+        label: `Rising Trend: ${maxRise.slope.toFixed(2)} units/s`,
+        critical: true,
+        baseColor: "#4CAF50" // Green
+      });
+    }
+    
+    // Find the point with the maximum negative change
+    const maxFall = derivatives.reduce((min, point) => point.slope < min.slope ? point : min, derivatives[0]);
+    if (maxFall.slope < -valueRange / timeRange * 50) { // Significant fall
+      annotations.push({
+        time: maxFall.time,
+        type: "Rapid Decrease",
+        label: `Falling Trend: ${maxFall.slope.toFixed(2)} units/s`,
+        critical: true,
+        baseColor: "#FF9800" // Orange
+      });
+    }
+  }
+  
+  // If we have less than 2 annotations, add some at interesting points
+  if (annotations.length < 2) {
+    // Add a point at 1/3 of the time range
+    const thirdPointIndex = Math.floor(data.length / 3);
+    if (thirdPointIndex < data.length) {
+      annotations.push({
+        time: data[thirdPointIndex].time,
+        type: "Event",
+        label: "Monitoring Point",
+        critical: false,
+        baseColor: "#9C27B0" // Purple
+      });
+    }
+    
+    // Add a point at 2/3 of the time range if needed
+    if (annotations.length < 2) {
+      const twoThirdsPointIndex = Math.floor(2 * data.length / 3);
+      if (twoThirdsPointIndex < data.length) {
+        annotations.push({
+          time: data[twoThirdsPointIndex].time,
+          type: "Event",
+          label: "Monitoring Point",
+          critical: false,
+          baseColor: "#9C27B0" // Purple
+        });
+      }
+    }
+  }
+  
+  // Ensure annotations are not too close to each other (at least 10% of time range apart)
+  const minTimeDiff = timeRange * 0.1;
+  return annotations.filter((ann, index) => {
+    for (let i = 0; i < index; i++) {
+      if (Math.abs(ann.time - annotations[i].time) < minTimeDiff) {
+        return false;
+      }
+    }
+    return true;
+  });
 }
