@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Surgery's Pulse - Crisis Analysis</title>
+    <!-- Load D3.js -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <!-- Load Font Awesome for icons -->
+    <script src="https://kit.fontawesome.com/b070bb9e45.js" crossorigin="anonymous"></script>
+    <!-- Load Google Fonts -->
+    <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
+    <!-- Load our stylesheet -->
+    <link rel="stylesheet" href="style.css">
+    <style>
+      body {
+        font-family: sans-serif;
+        margin: 0;
+        padding: 0;
+      }
+      #header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #f9f9f9;
+        padding: 10px 20px;
+        border-bottom: 1px solid #ccc;
+      }
+      #header h1 {
+        margin: 0;
+      }
+
+      /* Split-screen layout */
+      #container {
+        display: flex;
+        flex-direction: row;
+        height: calc(100vh - 60px); /* minus header height */
+      }
+
+      /* Left panel: Detailed time-series chart */
+      #leftPanel {
+        flex: 2;
+        border-right: 1px solid #ccc;
+        padding: 10px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      #biosignalToggles {
+        margin-bottom: 10px;
+      }
+      #chartArea {
+        flex: 1;
+      }
+
+      /* Right panel: Intervention tree & simulation */
+      #rightPanel {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 10px;
+        overflow: auto;
+      }
+
+      #interventionTree {
+        flex: 1;
+        border: 1px solid #eee;
+        margin-bottom: 20px;
+        position: relative; /* for absolute-positioned tooltips/popups */
+      }
+
+      #simulationPanel {
+        flex: 0;
+        border: 1px solid #eee;
+        padding: 10px;
+      }
+
+      /* Simple tooltip style */
+      .tooltip {
+        position: absolute;
+        pointer-events: none;
+        background: rgba(0, 0, 0, 0.7);
+        color: #fff;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Header with back button and title -->
+    <header class="crisis-header">
+      <button id="backButton"><i class="fas fa-arrow-left"></i> Back to Dashboard</button>
+      <h1>Crisis Analysis & Intervention Simulation</h1>
+      <div></div> <!-- placeholder to keep header balanced -->
+    </header>
+
+    <!-- Main content container -->
+    <div class="crisis-container">
+      <!-- LEFT PANEL: Detailed Time-Series Visualization -->
+      <div class="crisis-left-panel">
+        <div id="biosignalToggles">
+          <h3>Biosignals</h3>
+          <div id="signalCheckboxes"></div>
+        </div>
+        <div id="detailedChartArea"></div>
+      </div>
+
+      <!-- RIGHT PANEL: Intervention Tree & Simulation -->
+      <div class="crisis-right-panel">
+        <h3>Intervention Decision Tree</h3>
+        <p class="panel-description">
+          The decision tree below shows potential interventions for the detected crisis. 
+          Click on an intervention to simulate its effects on patient data.
+        </p>
+        <div id="interventionTree"></div>
+
+        <div id="simulationPanel">
+          <h3>Simulation Controls</h3>
+          <div class="control-group">
+            <label for="paramSlider">Parameter Intensity:</label>
+            <input type="range" min="0" max="100" value="50" id="paramSlider" />
+          </div>
+          
+          <div class="control-group">
+            <label for="paramValue">Value:</label>
+            <input type="number" id="paramValue" value="50" min="0" max="100" />
+          </div>
+
+          <button id="applySimulation">
+            <i class="fas fa-play-circle"></i> Apply Simulation
+          </button>
+          
+          <div class="simulation-info">
+            <i class="fas fa-info-circle"></i>
+            Adjust parameters to compare the simulated intervention (orange dashed line) 
+            against actual patient data (solid blue line).
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tooltip for interactive elements -->
+    <div id="tooltip" class="tooltip" style="opacity: 0;"></div>
+
+    <!-- Information panel at the bottom -->
+    <div class="crisis-info-panel">
+      <h3>About Crisis Analysis</h3>
+      <p>
+        This view provides detailed analysis of a critical event detected in the patient's biosignals.
+        Use the checkboxes to toggle different signals, zoom in on specific time windows, and simulate
+        various interventions to understand potential outcomes.
+      </p>
+      <p>
+        <strong>Key Features:</strong>
+        <ul>
+          <li>Detailed multi-signal visualization</li>
+          <li>Interactive zoom and pan capabilities</li>
+          <li>Decision tree for intervention selection</li>
+          <li>Simulation of intervention outcomes</li>
+        </ul>
+      </p>
+    </div>
+
+    <!-- Load the data API script -->
+    <script src="data_api.js"></script>
+    <!-- Load the data worker script -->
+    <script src="data_worker.js"></script>
+    <!-- Load the crisis analysis script -->
+    <script src="crisisAnalysis.js"></script>
+  </body>
+</html>

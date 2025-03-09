@@ -1,17 +1,20 @@
 /* Basic page styling */
 body {
-    font-family: sans-serif;
+    font-family: 'Google Sans', 'Noto Sans', sans-serif;
     margin: 0;
     padding: 0;
     background-color: #f9f9f9;
-  }
+    color: #333;
+    line-height: 1.5;
+}
   
-  header {
+header {
     text-align: center;
     background-color: #2c3e50;
     color: white;
     padding: 15px;
-  }
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
   
 /* Top controls for case and track selection */
 #controls-top {
@@ -22,122 +25,796 @@ body {
     flex-direction: row;
     justify-content: center;
     align-items: center;
+    background-color: #fff;
+    padding: 15px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
   
 #controls-top label {
     margin-right: 5px;
+    font-weight: 500;
+    color: #555;
 }
   
 #controls-top select {
     margin: 0 15px;
-    padding: 5px 10px;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    background-color: #fff;
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+#controls-top select:focus {
+    border-color: #4285F4;
 }
 
 #controls-top input {
     margin: 0 15px;
-    padding: 5px 10px;
+    padding: 8px 12px;
 }
 
 #controls-top {
     display: flex;
     flex-wrap: wrap;
     gap: 10px; /* Adjust the gap as needed */
-  }
+}
   
-  .caseSelector {
+.caseSelector {
     flex-basis: 100%;
-  }
+}
   
-  .trackSelector,
-  .labToggle {
+.trackSelector,
+.labToggle {
     flex-basis: calc(50% - 5px); /* Adjust the calculation as needed */
-  }
+}
   
 /* Lab results panel */
 #labResults {
     width: 900px;
     margin: 10px auto;
     background: #fff;
-    border: 1px solid #ccc;
-    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #e6e6e6;
+    padding: 15px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    display: none; /* Hidden by default */
 }
   
 #labResults h3 {
     margin-top: 0;
     text-align: center;
+    color: #2c3e50;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
 }
   
 #labTable {
     width: 100%;
     border-collapse: collapse;
+    margin-top: 10px;
 }
   
 #labTable th, #labTable td {
-    border: 1px solid #ccc;
-    padding: 5px;
+    border: 1px solid #eee;
+    padding: 8px 12px;
     text-align: center;
+}
+
+#labTable th {
+    background-color: #f5f5f5;
+    font-weight: 500;
+}
+
+#labTable tr:nth-child(even) {
+    background-color: #fafafa;
 }
 
 /* Chart container styling */
 #chart-container {
-width: 900px;
-margin: 20px auto;
-background-color: white;
-border: 1px solid #ccc;
-padding: 10px;
+    width: 900px;
+    margin: 20px auto;
+    background-color: white;
+    border-radius: 8px;
+    border: 1px solid #e6e6e6;
+    padding: 15px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
+
 #chart {
-border: 1px solid #ddd;
+    border: 1px solid #eee;
+    border-radius: 4px;
+    overflow: hidden;
 }
 
 /* Overview timeline container */
 #overview {
-width: 900px;
-margin: 10px auto;
-border: 1px solid #ccc;
-background: #fafafa;
-padding: 10px;
-overflow: auto; /* to contain the float: right of clearBrush if needed */
+    width: 900px;
+    margin: 15px auto;
+    border-radius: 8px;
+    border: 1px solid #e6e6e6;
+    background: #fff;
+    padding: 15px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+#clearBrush {
+    background: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.2s;
+}
+
+#clearBrush:hover {
+    background: #e0e0e0;
 }
 
 /* Annotation marker styles */
 .annotations circle {
-stroke: #333;
-stroke-width: 1;
+    cursor: pointer;
+    transition: r 0.2s, stroke-width 0.2s, opacity 0.2s;
+}
+
+.annotations circle:hover {
+    opacity: 0.8;
+}
+
+/* Data point styles */
+.data-point {
+    cursor: pointer;
+    transition: r 0.2s, opacity 0.2s;
 }
 
 /* Flashing animation for critical events */
 .flash {
-animation: flash 1s infinite;
+    animation: flash 1.5s infinite;
 }
+
 @keyframes flash {
-0%   { opacity: 1; }
-50%  { opacity: 0.3; }
-100% { opacity: 1; }
+    0%   { opacity: 1; }
+    50%  { opacity: 0.3; }
+    100% { opacity: 1; }
 }
 
 /* Playback controls styling */
 #controls {
-margin-top: 10px;
-text-align: center;
+    margin-top: 15px;
+    text-align: center;
+    padding: 10px;
+    background: #f9f9f9;
+    border-radius: 4px;
+    border: 1px solid #eee;
 }
-#controls button,
-#controls select,
+
+#controls button {
+    margin: 0 5px;
+    padding: 8px 12px;
+    background: #4285F4;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+#controls button:hover {
+    background: #3367D6;
+}
+
+#controls button:active {
+    background: #2A56C6;
+}
+
+#controls label {
+    margin: 0 8px;
+    font-weight: 500;
+}
+
+#controls select, 
 #controls input[type="range"] {
-margin: 0 5px;
-padding: 5px 10px;
+    margin: 0 5px;
+    padding: 6px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    vertical-align: middle;
+}
+
+#scrubber {
+    width: 300px;
+    margin: 0 10px;
+}
+
+#MAdropdownMenu {
+    padding: 6px 10px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+    background: white;
 }
 
 /* Tooltip styling */
 .tooltip {
-position: absolute;
-text-align: center;
-padding: 8px;
-font: 12px sans-serif;
-background: lightsteelblue;
-border: 0;
-border-radius: 4px;
-pointer-events: none;
-opacity: 0;
+    position: absolute;
+    text-align: left;
+    padding: 10px;
+    font: 12px sans-serif;
+    background: rgba(50, 50, 50, 0.9);
+    color: white;
+    border: 0;
+    border-radius: 4px;
+    pointer-events: none;
+    opacity: 0;
+    z-index: 1000;
+    max-width: 200px;
+    transition: opacity 0.3s;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.mini-tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    z-index: 1000;
+    max-width: 150px;
+}
+
+/* Add styles for the crisis analysis section */
+.crisis-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f9f9f9;
+    padding: 15px 20px;
+    border-bottom: 1px solid #e6e6e6;
+    margin-bottom: 20px;
+}
+
+.crisis-header button {
+    padding: 8px 12px;
+    background: #4285F4;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+.crisis-header button:hover {
+    background: #3367D6;
+}
+
+.crisis-header h2 {
+    margin: 0;
+    color: #333;
+    font-weight: 500;
+}
+
+/* Split-screen layout */
+.crisis-container {
+    display: flex;
+    flex-direction: row;
+    height: calc(100vh - 320px); /* Adjust based on your layout */
+    margin-bottom: 20px;
+}
+
+/* Left panel: Detailed time-series chart */
+.crisis-left-panel {
+    flex: 2;
+    border-right: 1px solid #e6e6e6;
+    padding: 15px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-right: 15px;
+}
+
+#detailedChartArea {
+    flex: 1;
+    min-height: 350px;
+    position: relative;
+}
+
+#biosignalToggles {
+    margin-bottom: 15px;
+    padding: 10px;
+    background: #f5f5f5;
+    border-radius: 6px;
+    border: 1px solid #eee;
+}
+
+.signal-checkbox-container {
+    display: inline-flex;
+    align-items: center;
+    margin-right: 12px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background: white;
+    border: 1px solid #e6e6e6;
+    margin-bottom: 5px;
+}
+
+.color-swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    margin: 0 6px;
+}
+
+.signal-label {
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100px;
+}
+
+/* Right panel: Intervention tree & simulation */
+.crisis-right-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 15px;
+    overflow: auto;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+#interventionTree {
+    flex: 1;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    position: relative; /* for absolute-positioned tooltips */
+    min-height: 300px;
+    overflow: hidden;
+    background: #fafafa;
+}
+
+#simulationPanel {
+    flex: 0;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    padding: 15px;
+    background: #f5f5f5;
+}
+
+#simulationPanel h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 16px;
+    color: #333;
+}
+
+#simulationPanel label {
+    margin-right: 5px;
+    font-weight: 500;
+}
+
+#simulationPanel input[type="range"] {
+    margin: 0 5px;
+    width: 120px;
+    vertical-align: middle;
+}
+
+#simulationPanel input[type="number"] {
+    width: 50px;
+    padding: 4px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+#applySimulation {
+    margin-top: 10px;
+    padding: 8px 12px;
+    background: #4285F4;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+    display: block;
+    width: 100%;
+}
+
+#applySimulation:hover {
+    background: #3367D6;
+}
+
+/* Node styles for tree */
+.node {
+    cursor: pointer;
+}
+
+.node circle {
+    transition: r 0.2s, stroke-width 0.2s;
+}
+
+.node:hover circle {
+    stroke-width: 3px;
+}
+
+/* Zoom controls */
+.zoom-controls rect {
+    cursor: pointer;
+    transition: fill 0.2s;
+}
+
+.zoom-controls rect:hover {
+    fill: #e0e0e0;
+}
+
+.zoom-controls text {
+    cursor: pointer;
+    user-select: none;
+}
+
+/* Tracking line for detailed chart */
+.tracking-line {
+    pointer-events: none;
+}
+
+/* Chart axes and grid */
+.grid line {
+    stroke: #e0e0e0;
+    stroke-opacity: 0.7;
+}
+
+.grid .domain {
+    stroke: none;
+}
+
+.x-axis path, .y-axis path {
+    stroke: #ccc;
+}
+
+.x-axis text, .y-axis text {
+    fill: #666;
+}
+
+.x-label, .y-label {
+    fill: #666;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.chart-title {
+    font-weight: 500;
+    fill: #333;
+}
+
+/* Animation for lines */
+.signal-line {
+    transition: stroke-width 0.2s;
+}
+
+/* Time marker */
+.time-marker, .center-time-line {
+    pointer-events: none;
+}
+
+/* Overview timeline styling */
+.mini-line {
+    transition: stroke-width 0.2s;
+}
+
+.mini-marker {
+    cursor: pointer;
+    transition: opacity 0.2s, width 0.2s;
+}
+
+.brush .selection {
+    stroke: #3367D6;
+    stroke-width: 1.5px;
+}
+
+.custom-handle {
+    cursor: ew-resize;
+}
+
+.mini-axis text {
+    font-size: 10px;
+    fill: #666;
+}
+
+.overview-title {
+    font-size: 11px;
+    fill: #666;
+}
+
+/* Responsive adjustments */
+@media (max-width: 940px) {
+    #controls-top, #chart-container, #overview, #labResults {
+        width: 95%;
+    }
+}
+
+/* Anomaly markers */
+.anomaly-marker {
+    cursor: pointer;
+    transition: r 0.2s, opacity 0.2s;
+}
+
+.anomaly-marker:hover {
+    opacity: 1;
+}
+
+/* Crisis info panel at the bottom */
+.crisis-info-panel {
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    border: 1px solid #e6e6e6;
+}
+
+.crisis-info-panel h3 {
+    margin-top: 0;
+    color: #2c3e50;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+
+.crisis-info-panel ul {
+    padding-left: 20px;
+}
+
+.crisis-info-panel li {
+    margin-bottom: 8px;
+}
+
+/* Panel description under section headings */
+.panel-description {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 15px;
+    line-height: 1.4;
+}
+
+/* Control groups in simulation panel */
+.control-group {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+.control-group label {
+    flex: 0 0 140px;
+    font-weight: 500;
+}
+
+.control-group input[type="range"] {
+    flex: 1;
+}
+
+.control-group input[type="number"] {
+    width: 60px;
+    padding: 6px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    text-align: center;
+}
+
+/* Simulation info text */
+.simulation-info {
+    margin-top: 15px;
+    padding: 10px;
+    background: #f5f7fa;
+    border-radius: 4px;
+    border-left: 4px solid #4285F4;
+    font-size: 13px;
+    color: #555;
+    line-height: 1.4;
+}
+
+.simulation-info i {
+    color: #4285F4;
+    margin-right: 5px;
+}
+
+/* Fix for header in crisis analysis page */
+header.crisis-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f9f9f9;
+    padding: 15px 20px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #e6e6e6;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+header.crisis-header h1 {
+    margin: 0;
+    color: #2c3e50;
+    font-size: 24px;
+    font-weight: 500;
+}
+
+header.crisis-header button {
+    padding: 8px 15px;
+    background: #4285F4;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.2s;
+}
+
+header.crisis-header button:hover {
+    background: #3367D6;
+}
+
+/* Add loading overlay styles */
+#loadingOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.9);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    transition: opacity 0.3s ease;
+}
+
+.loading-spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading-text, .loading-message {
+    font-size: 18px;
+    color: #333;
+    text-align: center;
+    max-width: 80%;
+    font-weight: bold;
+}
+
+/* Error message styling */
+.error-message {
+    padding: 20px;
+    background-color: #ffebee;
+    border: 1px solid #ffcdd2;
+    border-radius: 8px;
+    color: #c62828;
+    text-align: center;
+    margin: 20px auto;
+    max-width: 600px;
+}
+
+.error-message h3 {
+    margin-top: 0;
+    color: #c62828;
+}
+
+.error-message button {
+    background-color: #c62828;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background-color 0.2s;
+}
+
+.error-message button:hover {
+    background-color: #b71c1c;
+}
+
+/* Info message row in tables */
+.info-message {
+    font-style: italic;
+    color: #757575;
+    text-align: center;
+    padding: 8px;
+    background-color: #f5f5f5;
+}
+
+/* Performance optimizations for animations */
+.line, .ma1min-line, .ma5min-line {
+    will-change: d; /* Hint to browser about what will animate */
+}
+
+.time-marker, .data-point, .anomaly-marker, .annotations circle {
+    will-change: transform, opacity;
+}
+
+.flash {
+    will-change: opacity;
+}
+
+/* Prevent layout thrashing during animations */
+#chart svg, #detailedChartArea svg {
+    transform: translateZ(0); /* Force hardware acceleration */
+    backface-visibility: hidden;
+}
+
+/* Mobile responsive design */
+@media only screen and (max-width: 768px) {
+    #controls button {
+        padding: 6px 8px;
+        font-size: 12px;
+    }
+
+    #scrubber {
+        width: 150px;
+    }
+    
+    .control-group {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .control-group label {
+        margin-bottom: 5px;
+    }
+    
+    /* Stack main components vertically on mobile */
+    .crisis-container {
+        flex-direction: column;
+        height: auto;
+    }
+    
+    .crisis-left-panel, .crisis-right-panel {
+        width: 100%;
+        margin-right: 0;
+        margin-bottom: 15px;
+    }
+}
+
+/* Optimize chart element visibility */
+.line {
+    stroke-width: 2;
+    fill: none;
+}
+
+.range-area {
+    opacity: 0.4;
+}
+
+.mini-marker {
+    pointer-events: all; /* Ensure clickable even when small */
+}
+
+/* Enhance chart animations */
+.line, .ma1min-line, .ma5min-line, 
+.data-point, .anomaly-marker, .time-marker,
+.tracking-line, .annotations circle {
+    transition-timing-function: cubic-bezier(0.4, 0.0, 0.2, 1); /* Material Design easing */
 }
   
