@@ -14,7 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const svgMini = d3
-    .select("#overview")
+    .select("#data-overview")
     .append("svg")
     .attr("width", miniWidth + miniMargin.left + miniMargin.right)
     .attr("height", miniHeight + miniMargin.top + miniMargin.bottom)
@@ -44,9 +44,10 @@ document.addEventListener("DOMContentLoaded", () => {
   let overviewArea = null;
 
   function drawOverview() {
-    // Get data for overview - first clear old paths
+    // Get data for overview - first clear old paths and brush
     if (overviewPath) overviewPath.remove();
     if (overviewArea) overviewArea.remove();
+    if (brushG) brushG.remove();
     
     // Don't try to update the overview while we're in the middle of a brush operation
     if (window.isActiveBrushing) return;
