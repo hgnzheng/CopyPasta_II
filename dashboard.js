@@ -11,8 +11,11 @@ document.addEventListener("DOMContentLoaded", function() {
   
   // Show a default visualization right away
   setTimeout(function() {
-    if (typeof showDefaultVisualization === 'function') {
-      showDefaultVisualization();
+    // if (typeof showDefaultVisualization === 'function') {
+    //   showDefaultVisualization();
+    // }
+    if (typeof showDefaultMessage === 'function') {
+      showDefaultMessage("Please choose an operation type.");
     }
     
     // Then try to load the real data
@@ -437,7 +440,8 @@ function initializeWithDataAPI() {
     showErrorMessage("The data API could not be initialized. Please check your console for more information.");
     
     // Still show a default visualization
-    showDefaultVisualization();
+    // showDefaultVisualization();
+    showDefaultMessage("The data could not be initialized.");
     return Promise.reject("dataAPI is not available");
   }
 
@@ -607,14 +611,44 @@ function loadDefaultCaseFromDataset() {
         console.error("Error loading default case:", error);
         // Fall back to simulated data
         hideLoadingOverlay();
-        showDefaultVisualization();
+        // showDefaultVisualization();
+        showDefaultMessage("The default case could not be loaded.");
       });
   } catch (error) {
     console.error("Error in loadDefaultCaseFromDataset:", error);
     hideLoadingOverlay();
-    showDefaultVisualization();
+    // showDefaultVisualization();
+    showDefaultMessage("The default case could not be loaded.");
   }
 }
+
+function showDefaultMessage(message) {
+  console.log("Showing default message");
+  // Create SVG with same dimensions as chart
+
+  // Clear any existing chart
+  d3.select("#chart").select("svg").remove();
+
+  const svg = d3.select("#chart")
+    .append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+    .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
+    .attr("preserveAspectRatio", "xMidYMid meet")
+    .append("g")
+    .attr("transform", `translate(${margin.left},${margin.top})`);
+  
+  // Add message text in center
+  svg.append("text")
+    .attr("x", width / 2)
+    .attr("y", height / 2)
+    .attr("text-anchor", "middle")
+    .attr("dominant-baseline", "middle")
+    .style("font-size", "24px")
+    .style("fill", "#666")
+    .text(message);  
+}
+
 
 // Create a default visualization without relying on real data
 function showDefaultVisualization() {
@@ -972,8 +1006,9 @@ function updateCaseWithDataAPI(caseId) {
   console.log("updateCaseWithDataAPI called with caseId:", caseId);
   
   if (!caseId) {
-    console.warn("Invalid case ID, using default visualization instead");
-    showDefaultVisualization();
+    console.warn("Invalid case ID");
+    // showDefaultVisualization();
+    showDefaultMessage("The case could not be loaded.");
     return;
   }
   
@@ -1013,7 +1048,8 @@ function updateCaseWithDataAPI(caseId) {
         console.warn("No tracks found for case:", caseId);
         showInfoMessage("No tracks found for the selected case. Showing default visualization.");
         hideLoadingOverlay();
-        showDefaultVisualization();
+        // showDefaultVisualization();
+        showDefaultMessage("No tracks found for the selected case.");
         return;
       }
       
@@ -1046,7 +1082,8 @@ function updateCaseWithDataAPI(caseId) {
       } else {
         showInfoMessage("No track data available for this case. Showing default visualization.");
         hideLoadingOverlay();
-        showDefaultVisualization();
+        // showDefaultVisualization();
+        showDefaultMessage("No track data available for this case.");
       }
 
       // Load labs in the background
@@ -1064,7 +1101,8 @@ function updateCaseWithDataAPI(caseId) {
       console.error("Error loading tracks for case:", error);
       showErrorMessage(`Error loading tracks: ${error.message}`);
       hideLoadingOverlay();
-      showDefaultVisualization();
+      // showDefaultVisualization();
+      showDefaultMessage("The tracks could not be loaded.");
     });
 }
 
@@ -1114,7 +1152,8 @@ function updateChartWithDataAPI(tid) {
   
   if (!tid || tid === 'undefined') {
     console.warn("Invalid track ID, using default visualization instead");
-    showDefaultVisualization();
+    // showDefaultVisualization();
+    showDefaultMessage("The track could not be loaded.");
     return;
   }
   
@@ -1192,7 +1231,8 @@ function updateChartWithDataAPI(tid) {
           if (!data || !Array.isArray(data) || data.length === 0) {
             console.warn("No data received for track, showing default visualization");
             hideLoadingOverlay();
-            showDefaultVisualization();
+            // showDefaultVisualization();
+            showDefaultMessage("No data available for this track.");
             return;
           }
           
@@ -1577,7 +1617,8 @@ function updateChartWithDataAPI(tid) {
           hideLoadingOverlay();
           showErrorMessage(`Error processing chart data: ${innerError.message}`);
           // Fall back to default visualization
-          showDefaultVisualization();
+          // showDefaultVisualization();
+          showDefaultMessage("The chart could not be loaded.");
         }
     })
     .catch(error => {
@@ -1585,14 +1626,16 @@ function updateChartWithDataAPI(tid) {
       hideLoadingOverlay();
         showErrorMessage(`Error loading signal data: ${error.message}`);
         // Fall back to default visualization
-        showDefaultVisualization();
+        // showDefaultVisualization();
+        showDefaultMessage("The chart could not be loaded.");
       });
   } catch (error) {
     console.error("Error creating chart:", error);
     hideLoadingOverlay();
     showErrorMessage(`Error creating chart: ${error.message}`);
     // Fall back to default visualization
-    showDefaultVisualization();
+    // showDefaultVisualization();
+    showDefaultMessage("The chart could not be loaded.");
   }
 }
 
@@ -2027,8 +2070,17 @@ async function loadCaseHierarchy() {
         document.getElementById('complexityLevel').removeEventListener('change', updateCaseOptions);
         
         // Add event listeners
-        categorySelect.addEventListener('change', updateComplexityOptions);
-        document.getElementById('complexityLevel').addEventListener('change', updateCaseOptions);
+        // categorySelect.addEventListener('change', updateComplexityOptions);
+        categorySelect.addEventListener('change', function() {
+          console.log("Category selected:", this.value);
+          updateComplexityOptions();
+          showDefaultMessage("Please choose a complexity level.");
+        });
+        document.getElementById('complexityLevel').addEventListener('change', function() {
+          console.log("Complexity selected:", this.value);
+          updateCaseOptions();
+          showDefaultMessage("Please choose a case to visualize.");
+        });
         
         console.log("Case hierarchy loaded successfully with", operationTypes.length, "operation types");
         
@@ -2267,7 +2319,8 @@ function onCaseSelectChange(event) {
   if (!caseId || isNaN(caseId)) {
     console.warn("Invalid case ID selected:", event.target.value);
     hideLoadingOverlay();
-    showDefaultVisualization();
+    // showDefaultVisualization();
+    showDefaultMessage("The selected case could not be loaded.");
     return;
   }
   
@@ -2291,7 +2344,8 @@ function onCaseSelectChange(event) {
     console.error("Error updating case:", error);
     hideLoadingOverlay();
     showErrorMessage("Failed to update case. Using default visualization instead.");
-    showDefaultVisualization();
+    // showDefaultVisualization();
+    showDefaultMessage("The selected case could not be loaded.");
   }
 }
 
