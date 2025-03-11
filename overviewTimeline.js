@@ -8,8 +8,8 @@ document.addEventListener("DOMContentLoaded", () => {
     miniLinePath: "#999",
     brushHandle: "#666",
     brushArea: "rgba(51, 103, 214, 0.15)",
-    eventMarker: "#FF9800",
-    criticalMarker: "#F44336",
+    eventMarker: "#2196F3",
+    criticalMarker: "#2196F3",
     dataRange: "rgba(153, 153, 153, 0.25)"
   };
 
@@ -447,4 +447,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Make the drawOverview function available globally
   window.drawOverview = drawOverview;
+  window.overviewXScale = xMini;
+  window.overviewSVG = svgMini;
+  window.miniHeight = miniHeight;
+  window.overviewYScale = yMini;
 });
+

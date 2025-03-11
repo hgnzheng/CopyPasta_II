@@ -340,6 +340,7 @@ function checkForAnomalies() {
         // Add visual marker
         if (currentXScale && currentYScale) {
           d3.select("svg").select("g")
+            .datum(d)
             .append("circle")
             .attr("class", "anomaly-marker")
             .attr("cx", currentXScale(d.time))
@@ -378,6 +379,20 @@ function checkForAnomalies() {
             .transition()
             .duration(500)
             .attr("r", anomaly.severity === 'critical' ? 10 : 8);
+          if (window.overviewXScale && window.overviewSVG) {
+            window.overviewSVG
+            .append("circle")
+            .datum(d)
+            .attr("class", "mini-anomaly-marker")
+            .attr("cx", window.overviewXScale(d.time))
+            .attr("cy",  window.overviewYScale(d.value))
+            .attr("r", anomaly.severity === 'critical' ? 3 : 2)
+            .attr("fill", anomaly.severity === 'critical'
+              ? colors.anomalyMarker    
+              : "#FFA726"          
+            )
+            .attr("opacity", 0.5)
+          }
         }
       }
     }
@@ -1094,6 +1109,8 @@ function updateCaseWithDataAPI(caseId) {
         })
         .catch(error => {
           console.error("Error loading lab data:", error);
+          d3.selectAll(".mini-anomaly-marker").remove();
+          drawOverview();
           hideLoadingOverlay();
         });
     })
@@ -1599,14 +1616,9 @@ function updateChartWithDataAPI(tid) {
         .style("font-size", "10px");
         
       // Update the overview timeline
-      if (typeof drawOverview === "function") {
-            try {
-        drawOverview();
-            } catch (err) {
-              console.error("Error drawing overview:", err);
-            }
-      }
-          
+      d3.selectAll(".mini-anomaly-marker").remove();
+      drawOverview();
+
           // Initialize current time
           currentTime = timeExtent[0];
       
@@ -1817,7 +1829,12 @@ function updateChartElements() {
   // Update anomaly markers if present
   const anomalyMarkers = d3.selectAll(".anomaly-marker");
   if (anomalyMarkers.size() > 0) {
-    anomalyMarkers.attr("cx", d => currentXScale(d.time));
+    anomalyMarkers.attr("cx", d => currentXScale(d.time))
+    .attr("cy", d => currentYScale(d.value))
+    .style("display", d => {
+      const xPos = currentXScale(d.time);
+      return (xPos < 0 || xPos > width) ? "none" : "block";
+      });
   }
   
   // Update data points if present
