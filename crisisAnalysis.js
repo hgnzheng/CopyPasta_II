@@ -148,6 +148,11 @@ function createBiosignalCheckboxes(signals, startTime, endTime, centerTime) {
     const colorSwatch = document.createElement("span");
     colorSwatch.className = "color-swatch";
     colorSwatch.style.backgroundColor = signal.color;
+
+    colorSwatch.addEventListener("click", function(e) {
+      e.preventDefault();
+      checkbox.click();
+    });
     
     // Create label with signal name and improve formatting
     const label = document.createElement("label");
@@ -297,7 +302,7 @@ function refreshChart(startTime, endTime, centerTime) {
   d3.select("#detailedChartArea").selectAll("*").remove();
   
   // Set dimensions for the chart
-  const margin = { top: 20, right: 60, bottom: 50, left: 60 };
+  const margin = { top: 25, right: 60, bottom: 50, left: 60 };
   const width = document.getElementById("detailedChartArea").clientWidth - margin.left - margin.right;
   const height = 400 - margin.top - margin.bottom;
   
@@ -638,7 +643,7 @@ function refreshChart(startTime, endTime, centerTime) {
   // Zoom in button
   zoomControls.append("rect")
     .attr("x", 0)
-    .attr("y", 0)
+    .attr("y", -20)
     .attr("width", 30)
     .attr("height", 30)
     .attr("rx", 5)
@@ -650,16 +655,19 @@ function refreshChart(startTime, endTime, centerTime) {
   
   zoomControls.append("text")
     .attr("x", 15)
-    .attr("y", 20)
+    .attr("y", 0)
     .attr("text-anchor", "middle")
     .text("+")
     .style("font-size", "20px")
-    .style("user-select", "none");
+    .style("user-select", "none")
+    .on("click", () => {
+      detailedChartSvg.transition().duration(300).call(zoom.scaleBy, 1.5);
+    });
   
   // Zoom out button
   zoomControls.append("rect")
     .attr("x", 40)
-    .attr("y", 0)
+    .attr("y", -20)
     .attr("width", 30)
     .attr("height", 30)
     .attr("rx", 5)
@@ -671,16 +679,19 @@ function refreshChart(startTime, endTime, centerTime) {
   
   zoomControls.append("text")
     .attr("x", 55)
-    .attr("y", 20)
+    .attr("y", 0)
     .attr("text-anchor", "middle")
     .text("-")
     .style("font-size", "20px")
-    .style("user-select", "none");
+    .style("user-select", "none")
+    .on("click", () => {
+      detailedChartSvg.transition().duration(300).call(zoom.scaleBy, 0.67);
+    });
   
   // Reset zoom button
   zoomControls.append("rect")
     .attr("x", 80)
-    .attr("y", 0)
+    .attr("y", -20)
     .attr("width", 30)
     .attr("height", 30)
     .attr("rx", 5)
@@ -692,11 +703,14 @@ function refreshChart(startTime, endTime, centerTime) {
   
   zoomControls.append("text")
     .attr("x", 95)
-    .attr("y", 20)
+    .attr("y", 0)
     .attr("text-anchor", "middle")
     .text("⟲")
     .style("font-size", "16px")
-    .style("user-select", "none");
+    .style("user-select", "none")
+    .on("click", () => {
+      detailedChartSvg.transition().duration(300).call(zoom.transform, d3.zoomIdentity);
+    });
   
   // Add legend
   const legendGroup = g.append("g")
@@ -793,6 +807,26 @@ function initInterventionTree(centerTime) {
   
   // Compute node positions
   treeLayout(root);
+
+  //Evenly distribute leaf nodes horizontally
+  const leafMargin = 25;  
+  const effectiveWidth = width - 2 * leafMargin;  // available width for leaf nodes
+  const leaves = root.leaves();
+  const nLeaves = leaves.length;
+  if (nLeaves > 1) {
+    leaves.forEach((leaf, i) => {
+      leaf.x = leafMargin + i * (effectiveWidth / (nLeaves - 1));
+    });
+  } else if (nLeaves === 1) {
+    leaves[0].x = leafMargin + effectiveWidth / 2;
+  }
+  
+  // Update internal nodes' x coordinate to be the average of their children
+  root.eachAfter(node => {
+    if (node.children) {
+      node.x = d3.mean(node.children, d => d.x);
+    }
+  });
   
   // Add links between nodes
   svg.selectAll(".link")
@@ -815,6 +849,10 @@ function initInterventionTree(centerTime) {
     .attr("class", d => `node ${d.data.type}`)
     .attr("transform", d => `translate(${d.x}, ${d.y})`)
     .on("mouseover", showNodeDetails)
+    .on("mouseout", function() {
+      tooltip.transition().duration(500).style("opacity", 0);
+      chartArea.select(".tracking-line").remove();
+    })
     .on("click", (event, d) => {
       // Handle clicks for intervention nodes
       if (d.data.type === "intervention") {
