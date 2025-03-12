@@ -77,8 +77,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Attempt to fetch track list from some API or local data
   fetch(`https://api.vitaldb.net/trks?caseid=${caseId}`)
-    .then((response) => response.json())
-    .then((tracks) => {
+    .then((response) => response.text())
+    .then((csvText) => {
+      const tracks = d3.csvParse(csvText);
+
       // Filter down to signals that we want
       const biosignalsForCase = tracks
         .filter((track) => track.tname && track.tname.includes("/"))
