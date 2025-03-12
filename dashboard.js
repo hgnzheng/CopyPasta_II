@@ -134,34 +134,106 @@ document.addEventListener('DOMContentLoaded', function() {
 // ----------------------------------------------------------
 
 // Function to update the anomalies list in the sidebar
-function updateAnomaliesList(caseId) {
-  // This would be populated with actual data in the real implementation
-  const dummyAnomalies = [
-    { time: "00:32:15", type: "Hypotension", severity: "Medium" },
-    { time: "01:15:45", type: "Tachycardia", severity: "High" },
-    { time: "02:05:10", type: "Oxygen Desaturation", severity: "Low" }
-  ];
-  
+function updateAnomaliesList(anomalies, caseId) {
   const anomaliesList = document.getElementById('anomalies-list');
   anomaliesList.innerHTML = '';
   
-  dummyAnomalies.forEach((anomaly, index) => {
+  if (!anomalies || anomalies.length === 0) {
+    anomaliesList.innerHTML = `
+      <div class="no-anomalies">
+        <i class="fas fa-check-circle"></i>
+        <p>No anomalies detected</p>
+      </div>`;
+    return;
+  }
+  
+  // Add summary header with matching colors
+  const summaryDiv = document.createElement('div');
+  summaryDiv.className = 'anomalies-summary';
+  summaryDiv.innerHTML = `
+    <p class="has-text-weight-bold">
+      Found ${anomalies.length} anomalies:
+      <span class="tag" style="background-color: #F44336; color: white;">
+        ${anomalies.filter(a => a.severity === 'critical').length} Critical
+      </span>
+      <span class="tag" style="background-color: #FF9800; color: white;">
+        ${anomalies.filter(a => a.severity === 'high').length} High
+      </span>
+      <span class="tag" style="background-color: #FFC107; color: black;">
+        ${anomalies.filter(a => a.severity === 'medium').length} Medium
+      </span>
+    </p>
+  `;
+  anomaliesList.appendChild(summaryDiv);
+  
+  // Create scrollable container for anomalies
+  const scrollContainer = document.createElement('div');
+  scrollContainer.className = 'anomalies-scroll';
+  anomaliesList.appendChild(scrollContainer);
+  
+  anomalies.forEach((anomaly, index) => {
     const anomalyItem = document.createElement('div');
-    anomalyItem.className = 'box is-small mb-2';
+    anomalyItem.className = 'anomaly-item box is-small mb-2';
+    anomalyItem.dataset.time = anomaly.time;
+    
+    // Format time as HH:MM:SS
+    const timeStr = formatTime(anomaly.time);
+    
+    // Create descriptive text based on anomaly type
+    let description = '';
+    if (anomaly.type === 'spike' || anomaly.type === 'drop') {
+      description = `${anomaly.type.charAt(0).toUpperCase() + anomaly.type.slice(1)} detected (${anomaly.zScore.toFixed(1)}σ)`;
+    } else {
+      description = `${anomaly.type.charAt(0).toUpperCase() + anomaly.type.slice(1)} (${(anomaly.trendChange * 100).toFixed(1)}% change)`;
+    }
+    
     anomalyItem.innerHTML = `
-      <p class="is-size-7 has-text-weight-bold">${anomaly.type} <span class="tag is-${getSeverityColor(anomaly.severity)}">${anomaly.severity}</span></p>
-      <p class="is-size-7">Time: ${anomaly.time}</p>
-      <a href="crisisAnalysis.html?caseId=${caseId}&time=${timeToSeconds(anomaly.time)}" class="button is-small is-outlined is-info mt-1">Analyze</a>
+      <div class="anomaly-header">
+        <div class="severity-indicator" style="display: flex; align-items: center;">
+          <span class="dot" style="background-color: ${anomaly.baseColor}; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px;"></span>
+          <span class="tag" style="background-color: ${anomaly.baseColor}; color: ${anomaly.severity === 'medium' ? 'black' : 'white'}">
+            ${anomaly.severity}
+          </span>
+        </div>
+        <span class="anomaly-time">${timeStr}</span>
+      </div>
+      <p class="anomaly-description">${description}</p>
+      <div class="anomaly-details">
+        <span class="value-label">Value: ${anomaly.value.toFixed(2)}</span>
+        <button class="button is-small is-outlined is-info analyze-btn">
+          <span class="icon is-small">
+            <i class="fas fa-search"></i>
+          </span>
+          <span>Analyze</span>
+        </button>
+      </div>
     `;
-    anomaliesList.appendChild(anomalyItem);
+    
+    // Add event listeners
+    anomalyItem.addEventListener('mouseover', () => {
+      highlightAnomalyMarker(anomaly.time);
+      anomalyItem.style.borderColor = anomaly.baseColor;
+    });
+    
+    anomalyItem.addEventListener('mouseout', () => {
+      unhighlightAnomalyMarker();
+      anomalyItem.style.borderColor = '';
+    });
+    
+    anomalyItem.querySelector('.analyze-btn').addEventListener('click', () => {
+      window.location.href = `crisisAnalysis.html?caseId=${caseId}&time=${anomaly.time}`;
+    });
+    
+    scrollContainer.appendChild(anomalyItem);
   });
 }
   
 function getSeverityColor(severity) {
+  // Return the same colors as used for the dots
   switch(severity.toLowerCase()) {
-    case 'low': return 'warning';
-    case 'medium': return 'info';
-    case 'high': return 'danger';
+    case 'critical': return 'danger'; // matches #F44336
+    case 'high': return 'warning'; // matches #FF9800
+    case 'medium': return 'warning'; // matches #FFC107
     default: return 'info';
   }
 }
@@ -210,8 +282,8 @@ function updatePlayback() {
         .attr("x2", window.mainXScale(currentTime));
     }
     
-    // Check for anomalies
-  checkForAnomalies();
+    // Update time display
+    updateTimeDisplay(currentTime, getCurrentValue());
   }
 }
 
@@ -227,11 +299,19 @@ function stepPlayback() {
     if (currentTime > domain[1]) {
       // Loop back to beginning if at the end
       currentTime = domain[0];
+      // Clear existing anomalies when looping
+      d3.selectAll(".anomaly-marker").remove();
+      d3.selectAll(".mini-anomaly-marker").remove();
+      window.anomalies = [];
+      updateAnomaliesList([], d3.select("#caseSelector").property("value"));
     }
   }
   
   // Update the display
   updatePlayback();
+  
+  // Check for anomalies at current time point
+  checkForAnomalies();
   
   // Always use fast forward timing (50ms)
   timer = setTimeout(stepPlayback, 50);
@@ -266,11 +346,11 @@ function fastForwardPlayback() {
 function rewindPlayback() {
   if (playing) {
     // Stop playback
-  playing = false;
-  if (timer) {
-    clearTimeout(timer);
-    timer = null;
-  }
+    playing = false;
+    if (timer) {
+      clearTimeout(timer);
+      timer = null;
+    }
     // Reset play button state
     document.getElementById("fastForward").classList.remove("active-ff");
     document.getElementById("fastForward").innerHTML = '<i class="fas fa-play"></i> Play';
@@ -286,6 +366,12 @@ function rewindPlayback() {
     currentTime = 0;
   }
   
+  // Clear existing anomalies
+  d3.selectAll(".anomaly-marker").remove();
+  d3.selectAll(".mini-anomaly-marker").remove();
+  window.anomalies = [];
+  updateAnomaliesList([], d3.select("#caseSelector").property("value"));
+  
   updatePlayback();
 }
 
@@ -300,103 +386,199 @@ function updatePlaybackSpeed(newSpeed) {
 // ----------------------------------------------------------
 // ANOMALY DETECTION FUNCTIONS
 // ----------------------------------------------------------
-function checkForAnomalies() {
-  if (!window.currentTrackData) return;
+function detectAnomalies(data, currentTime) {
+  if (!data || data.length === 0) return [];
   
-  const currentData = window.currentTrackData;
-  const timeWindow = 10; // Look at data points within 10 seconds of current time
+  const anomalies = [];
+  const windowSize = 60; // 60 data points for moving calculations
   
-  // Get data points within the time window
-  const relevantData = currentData.filter(d => 
-    Math.abs(d.time - currentTime) <= timeWindow
-  );
-  
-  if (relevantData.length < 3) return; // Need at least a few points
-  
-  // Simple anomaly detection based on standard deviation
-  const values = relevantData.map(d => d.value);
+  // Calculate overall statistics
+  const values = data.map(d => d.value);
   const mean = d3.mean(values);
   const stdDev = d3.deviation(values);
   
-  // Define threshold for anomaly (e.g., 2 standard deviations)
-  const threshold = 2;
+  // Z-score threshold for anomalies - lower threshold to catch more medium anomalies
+  const zScoreThreshold = 2.0;
   
-  relevantData.forEach(d => {
-    // Check if this point is an anomaly
-    if (Math.abs(d.value - mean) > threshold * stdDev) {
-      // Check if we already detected this anomaly
-      const existingAnomaly = anomalies.find(a => Math.abs(a.time - d.time) < 2);
+  // Calculate moving average and standard deviation
+  for (let i = windowSize; i < data.length - windowSize; i++) {
+    const window = data.slice(i - windowSize, i + windowSize);
+    const windowValues = window.map(d => d.value);
+    const movingMean = d3.mean(windowValues);
+    const movingStdDev = d3.deviation(windowValues);
+    
+    const point = data[i];
+    const zScore = Math.abs((point.value - movingMean) / (movingStdDev || 1));
+    
+    // Check if this point is anomalous
+    if (zScore > zScoreThreshold) {
+      // Calculate severity based on how many standard deviations away
+      const severity = zScore > 4 ? 'critical' : zScore > 3 ? 'high' : 'medium';
       
-      if (!existingAnomaly && d.time <= currentTime) {
-        // This is a new anomaly
-        const anomaly = {
-          time: d.time,
-          value: d.value,
-          severity: Math.abs(d.value - mean) / stdDev > 3 ? 'critical' : 'warning'
-        };
+      // Only add if we don't already have a nearby anomaly
+      const nearbyAnomaly = anomalies.find(a => Math.abs(a.time - point.time) < 10);
+      if (!nearbyAnomaly) {
+        // Ensure consistent color assignment
+        const baseColor = severity === 'critical' ? '#F44336' : 
+                         severity === 'high' ? '#FF9800' : '#FFC107';
         
-        anomalies.push(anomaly);
-        
-        // Add visual marker
-        if (currentXScale && currentYScale) {
-          d3.select("svg").select("g")
-            .datum(d)
-            .append("circle")
-            .attr("class", "anomaly-marker")
-            .attr("cx", currentXScale(d.time))
-            .attr("cy", currentYScale(d.value))
-            .attr("r", 0)
-            .attr("fill", anomaly.severity === 'critical' ? colors.anomalyMarker : "#FFA726")
-            .attr("stroke", "#fff")
-            .attr("stroke-width", 2)
-            .attr("opacity", 0.8)
-            .on("mouseover", function(event) {
-              // Show tooltip
-              tooltip.transition()
-                .duration(200)
-                .style("opacity", .9);
-              tooltip.html(`
-                <strong>${anomaly.severity.toUpperCase()}</strong><br/>
-                Time: ${d.time.toFixed(1)}s<br/>
-                Value: ${d.value.toFixed(1)}<br/>
-                ${anomaly.severity === 'critical' ? 
-                  'Value exceeds 3σ from mean' : 
-                  'Value exceeds 2σ from mean'}
-              `)
-                .style("left", (event.pageX + 10) + "px")
-                .style("top", (event.pageY - 28) + "px");
-            })
-            .on("mouseout", function(d) {
-              tooltip.transition()
-                .duration(500)
-                .style("opacity", 0);
-            })
-            .on("click", function() {
-              // Navigate to crisis analysis page
-              const caseId = d3.select("#caseSelector").property("value");
-              window.location.href = `crisisAnalysis.html?caseId=${caseId}&centerTime=${d.time}&start=${d.time-30}&end=${d.time+30}`;
-            })
-            .transition()
-            .duration(500)
-            .attr("r", anomaly.severity === 'critical' ? 10 : 8);
-          if (window.overviewXScale && window.overviewSVG) {
-            window.overviewSVG
-            .append("circle")
-            .datum(d)
-            .attr("class", "mini-anomaly-marker")
-            .attr("cx", window.overviewXScale(d.time))
-            .attr("cy",  window.overviewYScale(d.value))
-            .attr("r", anomaly.severity === 'critical' ? 3 : 2)
-            .attr("fill", anomaly.severity === 'critical'
-              ? colors.anomalyMarker    
-              : "#FFA726"          
-            )
-            .attr("opacity", 0.5)
-          }
+        anomalies.push({
+          time: point.time,
+          value: point.value,
+          type: point.value > movingMean ? 'spike' : 'drop',
+          severity: severity,
+          zScore: zScore,
+          baseColor: baseColor
+        });
+      }
+    }
+    
+    // Check for significant trend changes
+    if (i > windowSize + 10) {
+      const prevWindow = data.slice(i - windowSize - 10, i - 10).map(d => d.value);
+      const prevMean = d3.mean(prevWindow);
+      const trendChange = (movingMean - prevMean) / prevMean;
+      
+      if (Math.abs(trendChange) > 0.15) { // 15% change threshold
+        const nearbyAnomaly = anomalies.find(a => Math.abs(a.time - point.time) < 20);
+        if (!nearbyAnomaly) {
+          const severity = Math.abs(trendChange) > 0.25 ? 'high' : 'medium';
+          const baseColor = severity === 'high' ? '#FF9800' : '#FFC107';
+          
+          anomalies.push({
+            time: point.time,
+            value: point.value,
+            type: trendChange > 0 ? 'rapid increase' : 'rapid decrease',
+            severity: severity,
+            trendChange: trendChange,
+            baseColor: baseColor
+          });
         }
       }
     }
-  });
+  }
+  
+  // Sort anomalies by time
+  anomalies.sort((a, b) => a.time - b.time);
+  
+  // Debug output
+  console.log(`Detected ${anomalies.length} anomalies`);
+  console.log(`Critical: ${anomalies.filter(a => a.severity === 'critical').length}`);
+  console.log(`High: ${anomalies.filter(a => a.severity === 'high').length}`);
+  console.log(`Medium: ${anomalies.filter(a => a.severity === 'medium').length}`);
+  
+  return anomalies;
+}
+
+function checkForAnomalies() {
+  if (!window.currentTrackData) return;
+  
+  // Get current domain from the x scale
+  const domain = window.mainXScale.domain();
+  
+  // Filter data to current view and up to current time
+  const visibleData = window.currentTrackData.filter(d => 
+    d.time >= domain[0] && d.time <= domain[1] && d.time <= currentTime
+  );
+  
+  // Detect anomalies in visible data
+  const newAnomalies = detectAnomalies(visibleData, currentTime);
+  
+  // Update global anomalies array
+  window.anomalies = newAnomalies;
+  
+  // Update anomalies list in sidebar
+  const caseId = d3.select("#caseSelector").property("value");
+  updateAnomaliesList(newAnomalies, caseId);
+  
+  // Add visual markers for anomalies - completely rewritten for reliability
+  if (currentXScale && currentYScale) {
+    // First, remove all existing markers
+    d3.selectAll(".anomaly-marker").remove();
+    d3.selectAll(".mini-anomaly-marker").remove();
+    
+    // Create markers for each anomaly - no transitions initially to ensure they appear
+    const svg = d3.select("svg").select("g");
+    
+    // Debug output
+    console.log(`Creating ${newAnomalies.length} anomaly markers`);
+    newAnomalies.forEach(anomaly => {
+      console.log(`Anomaly: time=${anomaly.time}, value=${anomaly.value}, severity=${anomaly.severity}, color=${anomaly.baseColor}`);
+      
+      // Create marker with initial size
+      const marker = svg.append("circle")
+        .attr("class", "anomaly-marker")
+        .attr("cx", currentXScale(anomaly.time))
+        .attr("cy", currentYScale(anomaly.value))
+        .attr("r", anomaly.severity === 'critical' ? 8 : anomaly.severity === 'high' ? 6 : 4)
+        .attr("fill", anomaly.baseColor)
+        .attr("stroke", "#fff")
+        .attr("stroke-width", 2)
+        .attr("opacity", 0.8)
+        .attr("data-time", anomaly.time);
+      
+      // Add event listeners directly
+      marker.on("mouseover", function(event) {
+        // Show tooltip
+        tooltip.transition()
+          .duration(200)
+          .style("opacity", .9);
+        tooltip.html(`
+          <strong>${anomaly.type.toUpperCase()}</strong><br/>
+          Time: ${formatTime(anomaly.time)}<br/>
+          Value: ${anomaly.value.toFixed(1)}<br/>
+          Severity: ${anomaly.severity}<br/>
+          ${anomaly.zScore ? `Z-Score: ${anomaly.zScore.toFixed(1)}` : 
+            `Change: ${(anomaly.trendChange * 100).toFixed(1)}%`}
+        `)
+          .style("left", (event.pageX + 10) + "px")
+          .style("top", (event.pageY - 28) + "px");
+        
+        // Highlight the marker
+        d3.select(this)
+          .transition()
+          .duration(200)
+          .attr("r", anomaly.severity === 'critical' ? 10 : 
+               anomaly.severity === 'high' ? 8 : 6)
+          .attr("stroke-width", 3);
+        
+        // Highlight corresponding item in anomalies list
+        highlightAnomalyInList(anomaly.time);
+      });
+      
+      marker.on("mouseout", function() {
+        // Hide tooltip
+        tooltip.transition()
+          .duration(500)
+          .style("opacity", 0);
+        
+        // Restore marker
+        d3.select(this)
+          .transition()
+          .duration(200)
+          .attr("r", anomaly.severity === 'critical' ? 8 : 
+               anomaly.severity === 'high' ? 6 : 4)
+          .attr("stroke-width", 2);
+        
+        // Remove highlight from anomalies list
+        removeAnomalyHighlight();
+      });
+      
+      marker.on("click", function() {
+        // Navigate to crisis analysis page
+        window.location.href = `crisisAnalysis.html?caseId=${caseId}&centerTime=${anomaly.time}&start=${anomaly.time-30}&end=${anomaly.time+30}`;
+      });
+      
+      // Create mini marker in overview timeline
+      if (window.overviewXScale && window.overviewSVG) {
+        // Instead of directly appending to overviewSVG, use the updateOverviewAnomalyMarkers function
+        // This ensures proper data binding and consistent marker management
+        if (typeof window.updateOverviewAnomalyMarkers === 'function') {
+          window.updateOverviewAnomalyMarkers();
+        }
+      }
+    });
+  }
 }
 
 // ----------------------------------------------------------
@@ -1817,30 +1999,105 @@ function updateChartElements() {
       .attr("x2", currentXScale(currentTime));
   }
   
-  // Update other interactive elements without transitions
-  // Only update elements that are actually present
+  // Update anomaly markers with proper data binding and transitions
+  if (window.anomalies && window.anomalies.length > 0) {
+    const chartG = d3.select("#chart svg g");
+    const markers = chartG.selectAll(".anomaly-marker")
+      .data(window.anomalies, d => d.time);
+    
+    // Update existing markers
+    markers
+      .transition()
+      .duration(50) // Quick transition to stay responsive
+      .attr("cx", d => currentXScale(d.time))
+      .attr("cy", d => currentYScale(d.value))
+      .style("display", d => {
+        const xPos = currentXScale(d.time);
+        return (xPos < 0 || xPos > width) ? "none" : "block";
+      });
+    
+    // Add new markers
+    const enterMarkers = markers.enter()
+      .append("circle")
+      .attr("class", "anomaly-marker")
+      .attr("r", d => d.severity === 'critical' ? 8 : d.severity === 'high' ? 6 : 4)
+      .attr("fill", d => d.baseColor)
+      .attr("stroke", "#fff")
+      .attr("stroke-width", 2)
+      .attr("opacity", 0.8)
+      .attr("data-time", d => d.time)
+      .attr("cx", d => currentXScale(d.time))
+      .attr("cy", d => currentYScale(d.value))
+      .style("display", d => {
+        const xPos = currentXScale(d.time);
+        return (xPos < 0 || xPos > width) ? "none" : "block";
+      });
+    
+    // Add event listeners to new markers
+    enterMarkers
+      .on("mouseover", function(event, d) {
+        // Show tooltip
+        tooltip.transition()
+          .duration(200)
+          .style("opacity", 0.9);
+        tooltip.html(`
+          <div class="tooltip-content">
+            <strong>${d.type}</strong><br/>
+            Time: ${formatTime(d.time)}<br/>
+            Value: ${d.value.toFixed(1)}<br/>
+            Severity: ${d.severity}<br/>
+            ${d.zScore ? `Z-Score: ${d.zScore.toFixed(1)}` : 
+              `Change: ${(d.trendChange * 100).toFixed(1)}%`}
+          </div>
+        `)
+          .style("left", (event.pageX + 10) + "px")
+          .style("top", (event.pageY - 28) + "px");
+        
+        // Highlight the marker
+        d3.select(this)
+          .transition()
+          .duration(200)
+          .attr("r", d.severity === 'critical' ? 10 : 
+               d.severity === 'high' ? 8 : 6)
+          .attr("stroke-width", 3);
+        
+        // Highlight corresponding item in anomalies list
+        highlightAnomalyInList(d.time);
+      })
+      .on("mouseout", function() {
+        // Hide tooltip
+        tooltip.transition()
+          .duration(500)
+          .style("opacity", 0);
+        
+        // Restore marker
+        d3.select(this)
+          .transition()
+          .duration(200)
+          .attr("r", d => d.severity === 'critical' ? 8 : 
+               d.severity === 'high' ? 6 : 4)
+          .attr("stroke-width", 2);
+        
+        // Remove highlight from anomalies list
+        removeAnomalyHighlight();
+      })
+      .on("click", function(event, d) {
+        // Navigate to crisis analysis page
+        const caseId = d3.select("#caseSelector").property("value");
+        window.location.href = `crisisAnalysis.html?caseId=${caseId}&centerTime=${d.time}&start=${d.time-30}&end=${d.time+30}`;
+      });
+    
+    // Remove old markers
+    markers.exit().remove();
+  }
   
   // Update annotations if present
   const annotationGroup = d3.selectAll(".annotations circle");
   if (annotationGroup.size() > 0) {
-    annotationGroup.attr("cx", d => currentXScale(d.time));
-  }
-  
-  // Update anomaly markers if present
-  const anomalyMarkers = d3.selectAll(".anomaly-marker");
-  if (anomalyMarkers.size() > 0) {
-    anomalyMarkers.attr("cx", d => currentXScale(d.time))
-    .attr("cy", d => currentYScale(d.value))
-    .style("display", d => {
-      const xPos = currentXScale(d.time);
-      return (xPos < 0 || xPos > width) ? "none" : "block";
-      });
-  }
-  
-  // Update data points if present
-  const dataPoints = d3.selectAll(".data-point");
-  if (dataPoints.size() > 0) {
-    dataPoints.attr("cx", d => currentXScale(d.time));
+    annotationGroup
+      .transition()
+      .duration(50)
+      .attr("cx", d => currentXScale(d.time));
   }
 }
 
@@ -2476,3 +2733,162 @@ function generateDataDrivenAnnotations(data, timeExtent) {
     return true;
   });
 }
+
+// Helper function to highlight anomaly marker
+function highlightAnomalyMarker(time) {
+  // Find all markers with matching time
+  d3.selectAll(".anomaly-marker")
+    .filter(function() {
+      return parseFloat(d3.select(this).attr("data-time")) === time;
+    })
+    .transition()
+    .duration(200)
+    .attr("r", function() {
+      // Get severity from the marker's parent element's data
+      const anomaly = window.anomalies.find(a => a.time === time);
+      if (anomaly) {
+        return anomaly.severity === 'critical' ? 10 : 
+               anomaly.severity === 'high' ? 8 : 6;
+      }
+      return 6; // Default size if no matching anomaly found
+    })
+    .attr("stroke-width", 3)
+    .attr("opacity", 1);
+    
+  // Also highlight mini markers
+  d3.selectAll(".mini-anomaly-marker")
+    .filter(function() {
+      return parseFloat(d3.select(this).attr("data-time")) === time;
+    })
+    .transition()
+    .duration(200)
+    .attr("opacity", 1);
+}
+
+// Helper function to unhighlight anomaly marker
+function unhighlightAnomalyMarker() {
+  // Reset all markers
+  d3.selectAll(".anomaly-marker")
+    .transition()
+    .duration(200)
+    .attr("r", function() {
+      const time = parseFloat(d3.select(this).attr("data-time"));
+      const anomaly = window.anomalies.find(a => a.time === time);
+      if (anomaly) {
+        return anomaly.severity === 'critical' ? 8 : 
+               anomaly.severity === 'high' ? 6 : 4;
+      }
+      return 4; // Default size if no matching anomaly found
+    })
+    .attr("stroke-width", 2)
+    .attr("opacity", 0.8);
+    
+  // Reset mini markers
+  d3.selectAll(".mini-anomaly-marker")
+    .transition()
+    .duration(200)
+    .attr("opacity", 0.5);
+}
+
+// Helper function to highlight anomaly in list
+function highlightAnomalyInList(time) {
+  const items = document.querySelectorAll('.anomaly-item');
+  items.forEach(item => {
+    if (parseFloat(item.dataset.time) === time) {
+      item.classList.add('highlighted');
+      item.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  });
+}
+
+// Helper function to remove highlight from anomaly list
+function removeAnomalyHighlight() {
+  document.querySelectorAll('.anomaly-item').forEach(item => {
+    item.classList.remove('highlighted');
+  });
+}
+
+// Add this CSS to your stylesheet
+const style = document.createElement('style');
+style.textContent = `
+  .anomalies-summary {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 10px;
+  }
+  
+  .anomalies-scroll {
+    max-height: 400px;
+    overflow-y: auto;
+    padding-right: 5px;
+  }
+  
+  .anomaly-item {
+    padding: 10px;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+  }
+  
+  .anomaly-item.highlighted {
+    background-color: #f5f5f5;
+    transform: scale(1.02);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  }
+  
+  .anomaly-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+  }
+  
+  .anomaly-time {
+    font-size: 0.9em;
+    color: #666;
+  }
+  
+  .anomaly-description {
+    font-size: 0.9em;
+    margin: 5px 0;
+  }
+  
+  .anomaly-details {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 5px;
+  }
+  
+  .value-label {
+    font-size: 0.9em;
+    color: #666;
+  }
+  
+  .no-anomalies {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+  }
+  
+  .no-anomalies i {
+    font-size: 2em;
+    color: #4CAF50;
+    margin-bottom: 10px;
+  }
+  
+  .severity-indicator {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  
+  .severity-indicator .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 5px;
+  }
+`;
+document.head.appendChild(style);

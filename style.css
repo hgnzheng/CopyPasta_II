@@ -1360,3 +1360,50 @@ header.crisis-header button:hover {
     max-width: 960px;
 }
 
+/* Mini anomaly markers */
+.mini-anomaly-marker {
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+    stroke: transparent;
+    stroke-width: 0;
+}
+
+.mini-anomaly-marker:hover {
+    opacity: 1 !important;
+    stroke: white;
+    stroke-width: 1.5px;
+    transform: scale(1.5);
+    z-index: 100;
+}
+
+/* Mini tooltip */
+.mini-tooltip {
+    position: absolute;
+    pointer-events: none;
+    line-height: 1.5;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out, transform 0.2s ease-out;
+    transform: translateY(5px);
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3));
+}
+
+.mini-tooltip strong {
+    display: inline-block;
+    margin-right: 5px;
+    font-weight: 600;
+}
+
+.mini-tooltip .tooltip-header {
+    font-weight: 600;
+    margin-bottom: 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding-bottom: 4px;
+}
+
+/* Ensure smooth transitions for all chart elements */
+.mini-line, .mini-area, .mini-anomaly-marker,
+.brush .selection, .custom-handle {
+    transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+

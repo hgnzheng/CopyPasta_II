@@ -112,22 +112,13 @@ document.addEventListener("DOMContentLoaded", () => {
       
       overviewData = downsampled;
     } else {
-      // Even for small datasets, ensure min/max values exist
-      overviewData = data.map(d => ({
-        time: d.time,
-        value: d.value,
-        minValue: 'minValue' in d ? d.minValue : d.value,
-        maxValue: 'maxValue' in d ? d.maxValue : d.value
-      }));
+      overviewData = data;
     }
 
-    // Update the scales, adding 10% padding to the y-domain for better appearance
+    // Update the scales
     const timeExtent = d3.extent(overviewData, d => d.time);
-    
-    // Use min/max values for better range display
     const valueMin = d3.min(overviewData, d => d.minValue);
     const valueMax = d3.max(overviewData, d => d.maxValue);
-    
     const valuePadding = (valueMax - valueMin) * 0.1;
 
     xMini.domain(timeExtent);
@@ -145,7 +136,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .selectAll("text")
       .style("font-size", "8px");
 
-    // If we have min/max values, show a range area for better visualization
+    // If we have min/max values, show a range area
     if (overviewData.length > 0 && 'minValue' in overviewData[0]) {
       const areaGenerator = d3.area()
         .x(d => xMini(d.time))
@@ -177,121 +168,17 @@ document.addEventListener("DOMContentLoaded", () => {
       .attr("stroke-width", 1)
       .attr("d", line);
 
-    // Get contextual events/markers from main chart or create defaults
-    let contextMarkers = [];
+    // Get anomalies from the main chart
+    let anomalies = window.anomalies || [];
     
-    // Use annotations from the main chart if available
-    if (window.currentAnnotationGroup) {
-      const nodes = window.currentAnnotationGroup.selectAll("circle").nodes();
-      if (nodes.length > 0) {
-        latestAnnotations = nodes.map(node => {
-          const d = d3.select(node).datum();
-          return {
-            time: d.time,
-            type: d.type || "event",
-            label: d.label || "",
-            critical: d.critical || false
-          };
-        });
-      }
-    }
-    
-    // If we have annotations from main chart, use them
-    if (latestAnnotations.length > 0) {
-      contextMarkers = latestAnnotations;
-    } 
-    // Otherwise create generic markers based on the time range
-    else {
-      const range = timeExtent[1] - timeExtent[0];
-      for (let i = 1; i <= 4; i++) {
-        contextMarkers.push({
-          time: timeExtent[0] + (range * i / 5),
-          type: i % 2 === 0 ? "critical" : "event",
-          label: i % 2 === 0 ? "Critical Event" : "Event",
-          critical: i % 2 === 0
-        });
-      }
-    }
-    
-    // Create marker group for events
+    // Create marker group for anomalies
     markerGroup = svgMini
       .append("g")
       .attr("class", "mini-markers");
     
-    // Add markers
-    markerGroup
-      .selectAll(".mini-marker")
-      .data(contextMarkers)
-      .enter()
-      .append("rect")
-      .attr("class", "mini-marker")
-      .attr("x", d => xMini(d.time) - 2)
-      .attr("y", 0)
-      .attr("width", 4)
-      .attr("height", miniHeight)
-      .attr("fill", d => d.critical ? colors.criticalMarker : colors.eventMarker)
-      .attr("opacity", 0.3)
-      .on("mouseover", function(event, d) {
-        // Highlight on hover
-        d3.select(this)
-          .attr("opacity", 0.7)
-          .attr("width", 6)
-          .attr("x", d => xMini(d.time) - 3);
-        
-        // Show tooltip
-        d3.select("body")
-          .append("div")
-          .attr("class", "mini-tooltip")
-          .style("position", "absolute")
-          .style("background", "rgba(0,0,0,0.7)")
-          .style("color", "white")
-          .style("padding", "5px")
-          .style("border-radius", "3px")
-          .style("font-size", "10px")
-          .style("pointer-events", "none")
-          .style("left", (event.pageX + 5) + "px")
-          .style("top", (event.pageY - 28) + "px")
-          .html(`${d.label || d.type} at ${d.time.toFixed(1)}s`);
-      })
-      .on("mouseout", function() {
-        // Restore marker
-        d3.select(this)
-          .attr("opacity", 0.3)
-          .attr("width", 4)
-          .attr("x", d => xMini(d.time) - 2);
-        
-        // Remove tooltip
-        d3.selectAll(".mini-tooltip").remove();
-      })
-      .on("click", function(event, d) {
-        // Focus main chart on this marker
-        if (window.currentXScale && typeof setMainChartDomain === 'function') {
-          const focusWindow = 60; // 60-second window
-          const start = Math.max(timeExtent[0], d.time - focusWindow/2);
-          const end = Math.min(timeExtent[1], d.time + focusWindow/2);
-          setMainChartDomain([start, end]);
-          
-          // If we have the time marker, set it to this time
-          if (window.currentTimeMarker && typeof currentTime !== 'undefined') {
-            window.currentTime = d.time;
-            window.updatePlayback();
-          }
-        }
-      });
-    
-    // Add time marker for current position if it exists
-    if (typeof currentTime !== 'undefined') {
-      svgMini.append("line")
-        .attr("class", "mini-time-marker")
-        .attr("x1", xMini(currentTime))
-        .attr("y1", 0)
-        .attr("x2", xMini(currentTime))
-        .attr("y2", miniHeight)
-        .attr("stroke", "rgba(0, 0, 0, 0.5)")
-        .attr("stroke-width", 1)
-        .attr("stroke-dasharray", "3,2");
-    }
-    
+    // Update anomaly markers
+    updateAnomalyMarkers();
+
     // Initialize the brush
     brush = d3
       .brushX()
@@ -375,7 +262,7 @@ document.addEventListener("DOMContentLoaded", () => {
       // Always update brush handles for smooth visual feedback
       updateBrushHandles(selection);
       
-      // Throttle main chart updates during active brushing to prevent freezing
+      // Throttle main chart updates during active brushing
       const now = Date.now();
       if (now - lastBrushUpdate < 50) { // Only update at most every 50ms during active brushing
         return;
@@ -389,6 +276,17 @@ document.addEventListener("DOMContentLoaded", () => {
         setMainChartDomain(newDomain);
         lastBrushUpdate = now;
       }
+      
+      // Update anomaly markers in both overview and main chart
+      if (window.anomalies && window.anomalies.length > 0) {
+        // Update mini anomaly markers with proper data binding
+        updateAnomalyMarkers();
+        
+        // Update main chart anomaly markers through the updateChartElements function
+        if (typeof updateChartElements === 'function') {
+          updateChartElements();
+        }
+      }
     }
 
     function brushEnded({ selection }) {
@@ -396,53 +294,29 @@ document.addEventListener("DOMContentLoaded", () => {
       window.isActiveBrushing = false;
       
       if (!selection) {
-        // If the brush was cleared by clicking outside, 
-        // restore the full domain in the main chart
+        // If the brush was cleared, restore the full domain
         if (typeof setMainChartDomain === 'function') {
           setMainChartDomain(timeExtent);
         }
         return;
       }
       
-      // Snap the brush to nearest events/markers for better UX
+      // Map the brush selection back to data domain
       const newDomain = selection.map(xMini.invert);
-      const snapThreshold = (timeExtent[1] - timeExtent[0]) * 0.02; // 2% of timeline
-      
-      // Limit the number of markers we check for snapping to improve performance
-      const contextMarkersSample = contextMarkers.length > 100 ? 
-        contextMarkers.filter((_, i) => i % Math.ceil(contextMarkers.length / 100) === 0) : 
-        contextMarkers;
-      
-      // Try to snap to nearby markers
-      let closestLeft = null;
-      let closestRight = null;
-      
-      contextMarkersSample.forEach(marker => {
-        const markerTime = marker.time;
-        // For the left edge
-        if (Math.abs(markerTime - newDomain[0]) < snapThreshold && 
-            (closestLeft === null || Math.abs(markerTime - newDomain[0]) < Math.abs(closestLeft - newDomain[0]))) {
-          closestLeft = markerTime;
-        }
-        // For the right edge
-        if (Math.abs(markerTime - newDomain[1]) < snapThreshold && 
-            (closestRight === null || Math.abs(markerTime - newDomain[1]) < Math.abs(closestRight - newDomain[1]))) {
-          closestRight = markerTime;
-        }
-      });
-      
-      // Apply snapping if we found close markers
-      if (closestLeft !== null) newDomain[0] = closestLeft;
-      if (closestRight !== null) newDomain[1] = closestRight;
       
       // Always do a final update with the final domain after brush end
       if (typeof setMainChartDomain === 'function') {
         setMainChartDomain(newDomain);
       }
       
-      // Update the brush position to match the snapped domain, but only if we snapped
-      if (closestLeft !== null || closestRight !== null) {
-        brush.move(brushG, [xMini(newDomain[0]), xMini(newDomain[1])]);
+      // Ensure anomaly markers are updated after brush ends
+      if (window.anomalies && window.anomalies.length > 0) {
+        updateAnomalyMarkers();
+        
+        // Update main chart elements
+        if (typeof updateChartElements === 'function') {
+          updateChartElements();
+        }
       }
     }
   }
@@ -453,5 +327,103 @@ document.addEventListener("DOMContentLoaded", () => {
   window.overviewSVG = svgMini;
   window.miniHeight = miniHeight;
   window.overviewYScale = yMini;
+
+  // Add markers for anomalies
+  function updateAnomalyMarkers() {
+    // Get current anomalies
+    const anomalies = window.anomalies || [];
+    
+    // Update markers with proper data binding
+    const markers = markerGroup.selectAll(".mini-anomaly-marker")
+      .data(anomalies, d => d.time); // Use time as the key for stable updates
+    
+    // Update existing markers with transition
+    markers
+      .transition()
+      .duration(200)
+      .attr("cx", d => xMini(d.time))
+      .attr("cy", d => yMini(d.value))
+      .attr("r", d => d.severity === 'critical' ? 3 : d.severity === 'high' ? 2 : 1.5)
+      .attr("fill", d => d.baseColor);
+    
+    // Add new markers
+    const enterMarkers = markers.enter()
+      .append("circle")
+      .attr("class", "mini-anomaly-marker")
+      .attr("r", d => d.severity === 'critical' ? 3 : d.severity === 'high' ? 2 : 1.5)
+      .attr("fill", d => d.baseColor)
+      .attr("opacity", 0.5)
+      .attr("data-time", d => d.time)
+      .attr("cx", d => xMini(d.time))
+      .attr("cy", d => yMini(d.value));
+    
+    // Remove old markers
+    markers.exit().remove();
+    
+    // Merge enter and update selections and add event handlers
+    markers.merge(enterMarkers)
+      .on("mouseover", function(event, d) {
+        // Highlight corresponding marker in main chart
+        highlightAnomalyMarker(d.time);
+        
+        // Show tooltip using the existing tooltip class
+        d3.select("body")
+          .append("div")
+          .attr("class", "tooltip")
+          .style("opacity", "0")
+          .style("left", (event.pageX + 15) + "px")
+          .style("top", (event.pageY - 40) + "px")
+          .html(`
+            <div style="margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.2); padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center">
+              <strong style="font-size: 15px">${d.type}</strong>
+              <span style="background: ${d.severity === 'critical' ? 'rgba(255,59,48,0.3)' : d.severity === 'high' ? 'rgba(255,149,0,0.3)' : 'rgba(52,199,89,0.3)'}; padding: 4px 10px; border-radius: 4px; font-size: 12px; margin-left: 12px">${d.severity}</span>
+            </div>
+            <div style="font-size: 14px; margin-bottom: 8px; display: flex; justify-content: space-between;">
+              <span>Time:</span> <strong style="margin-left: 8px">${formatTime(d.time)}</strong>
+            </div>
+            ${d.zScore ? 
+              `<div style="font-size: 14px; margin-bottom: 8px; display: flex; justify-content: space-between;">
+                <span>Z-Score:</span> <strong style="margin-left: 8px">${d.zScore.toFixed(1)}σ</strong>
+               </div>` : 
+              d.trendChange ? 
+              `<div style="font-size: 14px; margin-bottom: 8px; display: flex; justify-content: space-between;">
+                <span>Change:</span> <strong style="margin-left: 8px">${(d.trendChange * 100).toFixed(1)}%</strong>
+               </div>` : 
+              ''}
+            <div style="font-size: 13px; margin-top: 10px; opacity: 0.8; text-align: center; background: rgba(255,255,255,0.1); padding: 5px; border-radius: 4px;">Click to focus on this anomaly</div>
+          `)
+          .transition()
+          .duration(200)
+          .style("opacity", "1");
+      })
+      .on("mouseout", function() {
+        // Remove highlight
+        unhighlightAnomalyMarker();
+        // Remove tooltip with fade out effect
+        d3.selectAll(".tooltip")
+          .transition()
+          .duration(200)
+          .style("opacity", 0)
+          .remove();
+      })
+      .on("click", function(event, d) {
+        // Focus main chart on this anomaly
+        if (window.currentXScale && typeof setMainChartDomain === 'function') {
+          const focusWindow = 60; // 60-second window
+          const start = Math.max(d.time - focusWindow/2, xMini.domain()[0]);
+          const end = Math.min(d.time + focusWindow/2, xMini.domain()[1]);
+          setMainChartDomain([start, end]);
+          
+          // Update current time
+          if (typeof currentTime !== 'undefined') {
+            window.currentTime = d.time;
+            window.updatePlayback();
+          }
+        }
+      });
+  }
+
+  // Make updateAnomalyMarkers available globally
+  window.updateOverviewAnomalyMarkers = updateAnomalyMarkers;
 });
 
