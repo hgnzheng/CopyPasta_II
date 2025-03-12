@@ -341,7 +341,7 @@ document.addEventListener("DOMContentLoaded", () => {
       .attr("fill", colors.brushHandle)
       .attr("cursor", "ew-resize")
       .attr("d", brushHandlePath);
-    
+
     // Position handles correctly on brush events
     function updateBrushHandles(selection) {
       if (!selection) return;
@@ -366,6 +366,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Track the last update time to throttle updates during rapid brush movement
     let lastBrushUpdate = 0;
+
+    brushG.call(brush.move, xMini.range()); // Move brush to full range by default
     
     function brushed({ selection }) {
       if (!selection) return;
