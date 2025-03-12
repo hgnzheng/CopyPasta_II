@@ -43,9 +43,6 @@
       <a class="navbar-item" href="#dashboard-view">
         Interactive Dashboard
       </a>
-      <a class="navbar-item" href="#comparative">
-        Comparative Insights
-      </a>
       <a class="navbar-item" href="#documentation">
         Documentation
       </a>
@@ -124,7 +121,7 @@
         <div class="column">
           <figure class="image">
             <video autoplay loop muted playsinline width="400" height="200">
-              <source src="../data/video/video_1.mp4" type="video/mp4">
+              <source src="/data/video/video_1.mp4" type="video/mp4">
               Your browser does not support the video tag.
             </video>
             <figcaption>Primary time-series visualization showing biosignal trends with anomaly detection</figcaption>
@@ -133,7 +130,7 @@
         <div class="column">
           <figure class="image">
             <video autoplay loop muted playsinline width="650" height="200">
-              <source src="../data/video/video_2.mp4" type="video/mp4">
+              <source src="/data/video/video_2.mp4" type="video/mp4">
               Your browser does not support the video tag.
             </video>
             <figcaption>Overview timeline for contextual navigation throughout the surgery</figcaption>
@@ -144,9 +141,6 @@
       <div class="has-text-centered mt-5">
         <a href="#dashboard-view" class="button is-primary is-medium">
           <span>Explore the Interactive Dashboard</span>
-          <span class="icon">
-            <i class="fas fa-chart-line"></i>
-          </span>
         </a>
       </div>
     </section>
@@ -273,39 +267,6 @@
       <script src="./data_api.js"></script>
       <script src="./dashboard.js"></script>
       <script src="./overviewTimeline.js"></script>
-    </div>
-  </div>
-</section>
-
-<section class="section" id="comparative">
-  <div class="container is-max-desktop">
-    <h2 class="title is-3">Comparative Insights</h2>
-    <div class="content has-text-justified">
-      <p>
-        Beyond individual case analysis, the Surgery's Pulse dashboard enables comparison across multiple 
-        procedures, helping identify patterns in surgical techniques, response to interventions, and 
-        outcome predictions.
-      </p>
-      <div class="columns">
-        <div class="column">
-          <div class="box">
-            <h4 class="title is-4">Procedure Comparison</h4>
-            <p>Compare vital signs across different procedures of the same type to identify best practices and risks.</p>
-            <figure class="image">
-              <img src="https://via.placeholder.com/400x200?text=Procedure+Comparison" alt="Procedure comparison chart">
-            </figure>
-          </div>
-        </div>
-        <div class="column">
-          <div class="box">
-            <h4 class="title is-4">Intervention Effectiveness</h4>
-            <p>Analyze the effectiveness of similar interventions across different cases and patient profiles.</p>
-            <figure class="image">
-              <img src="https://via.placeholder.com/400x200?text=Intervention+Effectiveness" alt="Intervention effectiveness chart">
-            </figure>
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 </section>
