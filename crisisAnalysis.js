@@ -11,6 +11,8 @@ let detailedChartSvg, detailedXScale, detailedYScale;
 // Zoom behavior
 let zoom;
 
+let currentTransform = d3.zoomIdentity;
+
 // Color palette for consistent styling
 const colors = {
   signal1: "#4285F4", // Google blue
@@ -299,7 +301,7 @@ function fetchSignalData(tid, startT, endT) {
 }
 
 // Create the detailed time-series chart
-function refreshChart(startTime, endTime, centerTime) {
+function refreshChart(startTime, endTime, centerTime, preservedTransform) {
   // Clear existing chart
   d3.select("#detailedChartArea").selectAll("*").remove();
   
@@ -647,34 +649,29 @@ function refreshChart(startTime, endTime, centerTime) {
   // 在 zoom 回调中
   zoom = d3.zoom()
     .filter(function(event) {
-      // 只有当事件目标在 .overlay 或 .chart-area 内时才允许 zoom
       return event.target.closest('.overlay') || event.target.closest('.chart-area');
     })
     .scaleExtent([1, 10])
     .extent([[0, 0], [width, height]])
     .on("zoom", function(event) {
       let t = event.transform;
+      currentTransform = t; // 保存当前变换
       const k = t.k;
       
-      // 如果是按钮触发（程序化触发，sourceEvent 为 null），则以当前显示区域的中心为基准
       if (!event.sourceEvent) {
-        const currentTransform = d3.zoomTransform(chartArea.node());
-        // 计算当前显示区域中心对应的数据值（x 方向和 y 方向）
-        const visibleCenterX = currentTransform.rescaleX(detailedXScale).invert(width / 2);
-        const visibleCenterY = currentTransform.rescaleY(detailedYScale).invert(height / 2);
-        // 更新变换，使得 visibleCenter 对应的像素在 x 和 y 方向都位于中心
+        const currentT = d3.zoomTransform(chartArea.node());
+        const visibleCenterX = currentT.rescaleX(detailedXScale).invert(width / 2);
+        const visibleCenterY = currentT.rescaleY(detailedYScale).invert(height / 2);
         t = d3.zoomIdentity
               .translate(width/2 - k * detailedXScale(visibleCenterX),
                         height/2 - k * detailedYScale(visibleCenterY))
               .scale(k);
       }
       
-      // 限制平移范围（这里仅举例 x 方向，y 方向类似）
+      // 限制平移范围
       const minTx = width - k * width;
       const maxTx = 0;
       const tx = Math.max(Math.min(t.x, maxTx), minTx);
-      
-      // 如果需要，类似限制 y 方向
       const minTy = height - k * height;
       const maxTy = 0;
       const ty = Math.max(Math.min(t.y, maxTy), minTy);
@@ -684,23 +681,17 @@ function refreshChart(startTime, endTime, centerTime) {
       // 应用变换
       chartArea.attr("transform", t);
       
-      // 更新轴
+      // 更新轴和网格……
       const newXScale = t.rescaleX(detailedXScale);
       g.select(".x-axis").call(xAxis.scale(newXScale));
       const newYScale = t.rescaleY(detailedYScale);
       g.select(".y-axis").call(yAxis.scale(newYScale));
       
-      // 更新静态层中中心线的位置（只更新 x 方向）
       staticLayer.select(".center-time-line")
         .attr("x1", newXScale(centerTime))
         .attr("x2", newXScale(centerTime));
-
-
-      // 更新 x 轴
-      g.select(".x-axis")
-        .call(xAxis.scale(newXScale));
-
-      // 更新 x 网格，并移除底部的 domain 线
+      
+      // 同时更新网格（如之前代码）
       g.select(".x-grid")
         .call(
           d3.axisBottom(newXScale)
@@ -712,12 +703,7 @@ function refreshChart(startTime, endTime, centerTime) {
         .call(g => g.selectAll(".tick line")
           .attr("stroke", "#eee")
           .attr("stroke-dasharray", "3,3"));
-
-      // 更新 y 轴
-      g.select(".y-axis")
-        .call(yAxis.scale(newYScale));
-
-      // 更新 y 网格
+      
       g.select(".y-grid")
         .call(
           d3.axisLeft(newYScale)
@@ -729,8 +715,13 @@ function refreshChart(startTime, endTime, centerTime) {
         .call(g => g.selectAll(".tick line")
           .attr("stroke", "#eee")
           .attr("stroke-dasharray", "3,3"));
-
     });
+
+    if (preservedTransform) {
+      detailedChartSvg.call(zoom.transform, preservedTransform);
+    } else {
+      detailedChartSvg.call(zoom);
+    }
   
   // Add zoom controls
   detailedChartSvg.call(zoom);
@@ -875,6 +866,8 @@ function refreshChart(startTime, endTime, centerTime) {
     // Only return if reasonably close (within 5 seconds)
     return closestDist <= 5 ? closest : null;
   }
+
+  
 }
 
 // Initialize the intervention decision tree
@@ -1233,7 +1226,9 @@ function chooseInterventionA(eventType) {
   // Generate simulation data for intervention A
   simulatedData = buildSimulatedData(d3.select("#paramSlider").property("value"));
   // Refresh chart with simulation data
-  refreshChart(detailedXScale.domain()[0], detailedXScale.domain()[1], (detailedXScale.domain()[0] + detailedXScale.domain()[1]) / 2);
+  const preservedTransform = currentTransform;
+  refreshChart(detailedXScale.domain()[0], detailedXScale.domain()[1], (detailedXScale.domain()[0] + detailedXScale.domain()[1]) / 2,
+  preservedTransform);
 }
 
 // Handle intervention B choice
@@ -1242,7 +1237,9 @@ function chooseInterventionB(eventType) {
   const paramValue = d3.select("#paramSlider").property("value");
   simulatedData = buildSimulatedData(paramValue, true);
   // Refresh chart with simulation data
-  refreshChart(detailedXScale.domain()[0], detailedXScale.domain()[1], (detailedXScale.domain()[0] + detailedXScale.domain()[1]) / 2);
+  const preservedTransform = currentTransform;
+  refreshChart(detailedXScale.domain()[0], detailedXScale.domain()[1], (detailedXScale.domain()[0] + detailedXScale.domain()[1]) / 2,
+             preservedTransform);
 }
 
 // Initialize simulation controls
@@ -1263,10 +1260,11 @@ function initSimulationControls() {
     const paramValue = d3.select("#paramSlider").property("value");
     simulatedData = buildSimulatedData(paramValue);
     
-    // Refresh chart with simulation data
-    if (detailedXScale) {
-      refreshChart(detailedXScale.domain()[0], detailedXScale.domain()[1], (detailedXScale.domain()[0] + detailedXScale.domain()[1]) / 2);
-    }
+    // 保持当前 zoom 变换
+    const preservedTransform = currentTransform;  // 或者：d3.zoomTransform(detailedChartSvg.node())
+    
+    // 刷新图表，并传入 preservedTransform（修改 refreshChart 函数以支持可选 transform 参数）
+    refreshChart(detailedXScale.domain()[0], detailedXScale.domain()[1], (detailedXScale.domain()[0] + detailedXScale.domain()[1]) / 2, preservedTransform);
   });
 }
 
