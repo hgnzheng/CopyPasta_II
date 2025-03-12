@@ -698,6 +698,10 @@ header {
     border-bottom: 1px solid #e2e4e8;
 }
 
+.signal-button-wrapper {
+    display: inline-flex;
+}
+
 .signal-checkbox-container {
     display: inline-flex;
     align-items: center;

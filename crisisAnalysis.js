@@ -131,72 +131,79 @@ function createBiosignalCheckboxes(signals, startTime, endTime, centerTime) {
 
   signals.forEach((signal, index) => {
     const checkboxId = `signal-${index}`;
-    
-    // Create checkbox container
-    const checkboxContainer = document.createElement("div");
-    checkboxContainer.className = "signal-checkbox-container";
-    
-    // Highlight the container if selected
-    if (signal.checked) {
+
+  // Create a wrapper for the entire button
+  const buttonWrapper = document.createElement("div");
+  buttonWrapper.className = "signal-button-wrapper";
+
+  // Create checkbox container inside the wrapper
+  const checkboxContainer = document.createElement("div");
+  checkboxContainer.className = "signal-checkbox-container";
+
+  // 如果默认选中则添加样式
+  if (signal.checked) {
+    checkboxContainer.classList.add("selected");
+  }
+
+  // Create checkbox
+  const checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.id = checkboxId;
+  checkbox.checked = signal.checked;
+  checkbox.dataset.tid = signal.tid;
+
+  // Create colored color swatch
+  const colorSwatch = document.createElement("span");
+  colorSwatch.className = "color-swatch";
+  colorSwatch.style.backgroundColor = signal.color;
+
+  // Create label with signal name
+  const label = document.createElement("label");
+  label.className = "signal-label";
+  let displayName = signal.name;
+  if (displayName.includes("/")) {
+    const parts = displayName.split("/");
+    displayName = parts[parts.length - 1];
+    if (parts.length > 1 && parts[0]) {
+      displayName = `${displayName}`;
+    }
+  }
+  label.innerHTML = displayName;
+
+  // Append checkbox, swatch, and label to the container
+  checkboxContainer.appendChild(checkbox);
+  checkboxContainer.appendChild(colorSwatch);
+  checkboxContainer.appendChild(label);
+
+  // Append container to the overall button wrapper
+  buttonWrapper.appendChild(checkboxContainer);
+
+  // Attach click event to the entire wrapper so that clicking anywhere toggles the checkbox
+  buttonWrapper.addEventListener("click", function(e) {
+    // Prevent event from toggling twice when clicking the actual checkbox
+    if (e.target.tagName.toLowerCase() !== "input") {
+      checkbox.checked = !checkbox.checked;
+      // Manually trigger the change event
+      checkbox.dispatchEvent(new Event('change'));
+    }
+  });
+
+  // Append the overall wrapper to the parent container
+  container.appendChild(buttonWrapper);
+
+  // Set up event listener for the checkbox change event (keeps state in sync)
+  checkbox.addEventListener("change", function () {
+    if (this.checked) {
       checkboxContainer.classList.add("selected");
+      const selectedSignal = signals.find(s => s.tid === this.dataset.tid);
+      selectedSignals.push(selectedSignal);
+    } else {
+      checkboxContainer.classList.remove("selected");
+      selectedSignals = selectedSignals.filter(s => s.tid !== this.dataset.tid);
     }
-    
-    // Create checkbox
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.id = checkboxId;
-    checkbox.checked = signal.checked;
-    checkbox.dataset.tid = signal.tid;
-    
-    // Create colored color swatch
-    const colorSwatch = document.createElement("span");
-    colorSwatch.className = "color-swatch";
-    colorSwatch.style.backgroundColor = signal.color;
+    refreshChart(startTime, endTime, centerTime, currentTransform);
+  });
 
-    colorSwatch.addEventListener("click", function(e) {
-      e.preventDefault();
-      checkbox.click();
-    });
-    
-    // Create label with signal name and improve formatting
-    const label = document.createElement("label");
-    label.htmlFor = checkboxId;
-    label.className = "signal-label";
-    
-    // Format signal name to be more readable
-    let displayName = signal.name;
-    if (displayName.includes("/")) {
-      const parts = displayName.split("/");
-      displayName = parts[parts.length - 1];
-      // Add the category as a prefix in smaller text if available
-      if (parts.length > 1 && parts[0]) {
-        displayName = `${displayName}`;
-      }
-    }
-    
-    label.innerHTML = displayName;
-    
-    // Add elements to container
-    checkboxContainer.appendChild(checkbox);
-    checkboxContainer.appendChild(colorSwatch);
-    checkboxContainer.appendChild(label);
-    container.appendChild(checkboxContainer);
-
-    // Set up event listener
-    checkbox.addEventListener("change", function () {
-      // Update container highlighting
-      if (this.checked) {
-        checkboxContainer.classList.add("selected");
-        const selectedSignal = signals.find(s => s.tid === this.dataset.tid);
-        selectedSignals.push(selectedSignal);
-      } else {
-        checkboxContainer.classList.remove("selected");
-        selectedSignals = selectedSignals.filter(s => s.tid !== this.dataset.tid);
-      }
-      
-      // Refresh the chart with our selection
-      refreshChart(startTime, endTime, centerTime, currentTransform);
-    });
   });
 
   // Fetch data for all siginals and draw chart for selectedSignals
