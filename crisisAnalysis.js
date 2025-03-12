@@ -1,5 +1,5 @@
 // crisisAnalysis.js
-showLoadingOverlay("Initializing dashboard...");
+showLoadingOverlay("Initializing page...");
 // We'll store loaded data for each TID in a dictionary
 let loadedData = {};
 // We'll store an array for the "simulation" line
@@ -310,7 +310,7 @@ function refreshChart(startTime, endTime, centerTime, preservedTransform) {
   d3.select("#detailedChartArea").selectAll("*").remove();
   
   // Set dimensions for the chart
-  const margin = { top: 25, right: 60, bottom: 50, left: 60 };
+  const margin = { top: 80, right: 60, bottom: 60, left: 60 };
   const width = document.getElementById("detailedChartArea").clientWidth - margin.left - margin.right;
   const height = 400 - margin.top - margin.bottom;
   
