@@ -170,7 +170,7 @@ function createBiosignalCheckboxes(signals, startTime, endTime, centerTime) {
       displayName = parts[parts.length - 1];
       // Add the category as a prefix in smaller text if available
       if (parts.length > 1 && parts[0]) {
-        displayName = `<span class="signal-category">${parts[0]}:</span> ${displayName}`;
+        displayName = `${displayName}`;
       }
     }
     
