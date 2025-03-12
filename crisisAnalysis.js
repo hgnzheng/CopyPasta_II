@@ -195,7 +195,7 @@ function createBiosignalCheckboxes(signals, startTime, endTime, centerTime) {
       }
       
       // Refresh the chart with our selection
-      refreshChart(startTime, endTime, centerTime);
+      refreshChart(startTime, endTime, centerTime, currentTransform);
     });
   });
 
@@ -341,9 +341,12 @@ function refreshChart(startTime, endTime, centerTime, preservedTransform) {
     .attr("transform", `translate(${margin.left}, ${margin.top})`);
   
   // Create charting area with clip path
-  const chartArea = g.append("g")
-    .attr("class", "chart-area")
-    .attr("clip-path", "url(#clip)");
+  const chartContainer = g.append("g")
+  .attr("clip-path", "url(#clip)");
+
+// Create the zoomable chart area INSIDE the clipped container.
+const chartArea = chartContainer.append("g")
+  .attr("class", "chart-area");
   
   // Find combined time range
   let allTimes = [];
