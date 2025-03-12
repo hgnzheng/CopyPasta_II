@@ -838,9 +838,10 @@ header {
 }
 
 /* Zoom controls */
-.zoom-controls rect {
+/* .zoom-controls rect {
     cursor: pointer;
     transition: fill 0.2s;
+    z-index: 10;
 }
 
 .zoom-controls rect:hover {
@@ -850,7 +851,23 @@ header {
 .zoom-controls text {
     cursor: pointer;
     user-select: none;
+} */
+
+/* 给整个按钮组设置鼠标指针 */
+.zoom-button {
+    cursor: pointer;
 }
+
+/* 设置背景矩形的过渡效果 */
+.zoom-button rect {
+    transition: fill 0.2s;
+}
+
+/* 鼠标悬停时改变背景颜色 */
+.zoom-button:hover rect {
+    fill: #e0e0e0;
+}
+
 
 /* Tracking line for detailed chart */
 .tracking-line {
@@ -1338,3 +1355,4 @@ header.crisis-header button:hover {
     border: 1px solid #eaeaea;
     max-width: 960px;
 }
+
