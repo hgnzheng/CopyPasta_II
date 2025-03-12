@@ -447,20 +447,6 @@ function refreshChart(startTime, endTime, centerTime) {
   const yAxis = d3.axisLeft(detailedYScale)
     .ticks(8);
   
-  // Add grid lines
-  g.append("g")
-    .attr("class", "grid")
-    .attr("transform", `translate(0, ${height})`)
-    .call(xAxis.tickSize(-height).tickFormat(""));
-  
-  g.append("g")
-    .attr("class", "grid")
-    .call(yAxis.tickSize(-width).tickFormat(""))
-    .call(g => g.select(".domain").remove())
-    .call(g => g.selectAll(".tick line")
-      .attr("stroke", "#eee")
-      .attr("stroke-dasharray", "3,3"));
-  
   // Add x-axis
   g.append("g")
     .attr("class", "x-axis")
@@ -477,6 +463,34 @@ function refreshChart(startTime, endTime, centerTime) {
     .call(g => g.select(".domain").attr("stroke", "#ccc"))
     .call(g => g.selectAll(".tick line").attr("stroke", "#ddd"))
     .call(g => g.selectAll(".tick text").attr("font-size", "10px"));
+
+  // 在创建完 x、y 轴后添加 grid（在同一个 g 内，这样它们会随 zoom 一起更新）
+    g.append("g")
+      .attr("class", "x-grid")
+      .attr("transform", `translate(0, ${height})`)
+      .call(
+        d3.axisBottom(detailedXScale)
+          .ticks(10)
+          .tickSize(-height)
+          .tickFormat("")
+      ).call(g => g.select(".domain").remove())  // 移除底部黑色轴线
+      .call(g => g.selectAll(".tick line")
+        .attr("stroke", "#eee")
+        .attr("stroke-dasharray", "3,3"));
+
+  g.append("g")
+  .attr("class", "y-grid")
+  .call(
+    d3.axisLeft(detailedYScale)
+      .ticks(8)
+      .tickSize(-width)
+      .tickFormat("")
+  )
+  .call(g => g.select(".domain").remove())
+  .call(g => g.selectAll(".tick line")
+    .attr("stroke", "#eee")
+    .attr("stroke-dasharray", "3,3"));
+
   
   // Add x-axis label
   g.append("text")
@@ -494,6 +508,22 @@ function refreshChart(startTime, endTime, centerTime) {
     .attr("y", -40)
     .attr("x", -height / 2)
     .text("Value");
+
+    // 先在 g 里面创建一个静态层，放置不受缩放影响的元素
+  const staticLayer = g.append("g")
+  .attr("class", "static-layer");
+
+  // 添加中心时间线到静态层，而不是 chartArea
+  staticLayer.append("line")
+  .attr("class", "center-time-line")
+  .attr("x1", detailedXScale(centerTime))
+  .attr("x2", detailedXScale(centerTime))
+  .attr("y1", 0)
+  .attr("y2", height)
+  .attr("stroke", colors.timeMarker)
+  .attr("stroke-width", 2)
+  .attr("stroke-dasharray", "5,5");
+
   
   // Create a line generator
   const line = d3.line()
@@ -549,17 +579,6 @@ function refreshChart(startTime, endTime, centerTime) {
       .attr("d", line);
   }
   
-  // Add a vertical line for the center time
-  chartArea.append("line")
-    .attr("class", "center-time-line")
-    .attr("x1", detailedXScale(centerTime))
-    .attr("x2", detailedXScale(centerTime))
-    .attr("y1", 0)
-    .attr("y2", height)
-    .attr("stroke", colors.timeMarker)
-    .attr("stroke-width", 2)
-    .attr("stroke-dasharray", "5,5");
-  
   // Add tooltip for data exploration
   const tooltip = d3.select("body")
     .append("div")
@@ -574,64 +593,143 @@ function refreshChart(startTime, endTime, centerTime) {
     .style("fill", "none")
     .style("pointer-events", "all")
     .on("mousemove", function(event) {
-      // Get mouse position
-      const [xPos] = d3.pointer(event);
-      const time = detailedXScale.invert(xPos);
+      // 获取相对于 g 的鼠标坐标（g 是不变换的容器）
+      const [xPos] = d3.pointer(event, g.node());
       
-      // Update the tooltip position
+      // 获取当前 zoom 变换，并构造新的 x 轴比例尺
+      const transform = d3.zoomTransform(chartArea.node());
+      const newXScale = transform.rescaleX(detailedXScale);
+      
+      // 根据新的比例尺反演得到数据时间
+      const time = newXScale.invert(xPos);
+      
+      // 更新 tooltip 的位置和内容（略）
       tooltip.style("left", (event.pageX + 10) + "px")
-        .style("top", (event.pageY - 28) + "px");
+            .style("top", (event.pageY - 28) + "px");
       
-      // Show values for each signal at this time
       let html = `<strong>Time: ${time.toFixed(1)}s</strong><br/>`;
       let foundData = false;
-      
       selectedSignals.forEach(signal => {
         if (loadedData[signal.tid]) {
-          // Find nearest data point
           const dataPoint = findNearestPoint(loadedData[signal.tid], time);
           if (dataPoint) {
             foundData = true;
             html += `<div style="color:${signal.color}">
-              ${signal.name.split("/").pop()}: ${dataPoint.value.toFixed(2)}
-            </div>`;
+                        ${signal.name.split("/").pop()}: ${dataPoint.value.toFixed(2)}
+                    </div>`;
           }
         }
       });
-      
       if (foundData) {
         tooltip.transition().duration(100).style("opacity", 0.9);
         tooltip.html(html);
-        
-        // Update vertical tracking line
-        chartArea.select(".tracking-line").remove();
-        chartArea.append("line")
-          .attr("class", "tracking-line")
-          .attr("x1", xPos)
-          .attr("x2", xPos)
-          .attr("y1", 0)
-          .attr("y2", height)
-          .attr("stroke", "#999")
-          .attr("stroke-width", 1)
-          .attr("stroke-dasharray", "3,3");
       }
+      
+      // 移除之前的 tracking line，并在静态层中添加新的 tracking line
+      staticLayer.select(".tracking-line").remove();
+      staticLayer.append("line")
+        .attr("class", "tracking-line")
+        .attr("x1", newXScale(time))
+        .attr("x2", newXScale(time))
+        .attr("y1", 0)
+        .attr("y2", height)  // 固定为原始图表高度
+        .attr("stroke", "#999")
+        .attr("stroke-width", 1)
+        .attr("stroke-dasharray", "3,3");
     })
     .on("mouseout", function() {
       tooltip.transition().duration(500).style("opacity", 0);
-      chartArea.select(".tracking-line").remove();
+      staticLayer.select(".tracking-line").remove();
     });
+
   
   // Add zooming behavior
+  // 在 zoom 回调中
   zoom = d3.zoom()
+    .filter(function(event) {
+      // 只有当事件目标在 .overlay 或 .chart-area 内时才允许 zoom
+      return event.target.closest('.overlay') || event.target.closest('.chart-area');
+    })
     .scaleExtent([1, 10])
     .extent([[0, 0], [width, height]])
-    .on("zoom", (event) => {
-      // Apply zoom transform to chart area
-      chartArea.attr("transform", event.transform);
+    .on("zoom", function(event) {
+      let t = event.transform;
+      const k = t.k;
       
-      // Update axes
-      const newXScale = event.transform.rescaleX(detailedXScale);
+      // 如果是按钮触发（程序化触发，sourceEvent 为 null），则以当前显示区域的中心为基准
+      if (!event.sourceEvent) {
+        const currentTransform = d3.zoomTransform(chartArea.node());
+        // 计算当前显示区域中心对应的数据值（x 方向和 y 方向）
+        const visibleCenterX = currentTransform.rescaleX(detailedXScale).invert(width / 2);
+        const visibleCenterY = currentTransform.rescaleY(detailedYScale).invert(height / 2);
+        // 更新变换，使得 visibleCenter 对应的像素在 x 和 y 方向都位于中心
+        t = d3.zoomIdentity
+              .translate(width/2 - k * detailedXScale(visibleCenterX),
+                        height/2 - k * detailedYScale(visibleCenterY))
+              .scale(k);
+      }
+      
+      // 限制平移范围（这里仅举例 x 方向，y 方向类似）
+      const minTx = width - k * width;
+      const maxTx = 0;
+      const tx = Math.max(Math.min(t.x, maxTx), minTx);
+      
+      // 如果需要，类似限制 y 方向
+      const minTy = height - k * height;
+      const maxTy = 0;
+      const ty = Math.max(Math.min(t.y, maxTy), minTy);
+      
+      t = d3.zoomIdentity.translate(tx, ty).scale(k);
+      
+      // 应用变换
+      chartArea.attr("transform", t);
+      
+      // 更新轴
+      const newXScale = t.rescaleX(detailedXScale);
       g.select(".x-axis").call(xAxis.scale(newXScale));
+      const newYScale = t.rescaleY(detailedYScale);
+      g.select(".y-axis").call(yAxis.scale(newYScale));
+      
+      // 更新静态层中中心线的位置（只更新 x 方向）
+      staticLayer.select(".center-time-line")
+        .attr("x1", newXScale(centerTime))
+        .attr("x2", newXScale(centerTime));
+
+
+      // 更新 x 轴
+      g.select(".x-axis")
+        .call(xAxis.scale(newXScale));
+
+      // 更新 x 网格，并移除底部的 domain 线
+      g.select(".x-grid")
+        .call(
+          d3.axisBottom(newXScale)
+            .ticks(10)
+            .tickSize(-height)
+            .tickFormat("")
+        )
+        .call(g => g.select(".domain").remove())
+        .call(g => g.selectAll(".tick line")
+          .attr("stroke", "#eee")
+          .attr("stroke-dasharray", "3,3"));
+
+      // 更新 y 轴
+      g.select(".y-axis")
+        .call(yAxis.scale(newYScale));
+
+      // 更新 y 网格
+      g.select(".y-grid")
+        .call(
+          d3.axisLeft(newYScale)
+            .ticks(8)
+            .tickSize(-width)
+            .tickFormat("")
+        )
+        .call(g => g.select(".domain").remove())
+        .call(g => g.selectAll(".tick line")
+          .attr("stroke", "#eee")
+          .attr("stroke-dasharray", "3,3"));
+
     });
   
   // Add zoom controls
@@ -643,76 +741,78 @@ function refreshChart(startTime, endTime, centerTime) {
     .attr("transform", `translate(${width - 100}, 10)`);
   
   // Zoom in button
-  zoomControls.append("rect")
+  // Zoom in 按钮
+  const zoomInButton = zoomControls.append("g")
+    .attr("class", "zoom-button zoom-in")
+    .on("click", () => {
+      detailedChartSvg.transition().duration(300).call(zoom.scaleBy, 1.5);
+    });
+
+  zoomInButton.append("rect")
     .attr("x", 0)
     .attr("y", -20)
     .attr("width", 30)
     .attr("height", 30)
     .attr("rx", 5)
     .attr("fill", "#f0f0f0")
-    .attr("stroke", "#ccc")
-    .on("click", () => {
-      detailedChartSvg.transition().duration(300).call(zoom.scaleBy, 1.5);
-    });
-  
-  zoomControls.append("text")
+    .attr("stroke", "#ccc");
+
+  zoomInButton.append("text")
     .attr("x", 15)
     .attr("y", 0)
     .attr("text-anchor", "middle")
     .text("+")
     .style("font-size", "20px")
-    .style("user-select", "none")
+    .style("user-select", "none");
+
+  // Zoom out 按钮
+  const zoomOutButton = zoomControls.append("g")
+    .attr("class", "zoom-button zoom-out")
     .on("click", () => {
-      detailedChartSvg.transition().duration(300).call(zoom.scaleBy, 1.5);
+      detailedChartSvg.transition().duration(300).call(zoom.scaleBy, 0.67);
     });
-  
-  // Zoom out button
-  zoomControls.append("rect")
+
+  zoomOutButton.append("rect")
     .attr("x", 40)
     .attr("y", -20)
     .attr("width", 30)
     .attr("height", 30)
     .attr("rx", 5)
     .attr("fill", "#f0f0f0")
-    .attr("stroke", "#ccc")
-    .on("click", () => {
-      detailedChartSvg.transition().duration(300).call(zoom.scaleBy, 0.67);
-    });
-  
-  zoomControls.append("text")
+    .attr("stroke", "#ccc");
+
+  zoomOutButton.append("text")
     .attr("x", 55)
     .attr("y", 0)
     .attr("text-anchor", "middle")
     .text("-")
     .style("font-size", "20px")
-    .style("user-select", "none")
+    .style("user-select", "none");
+
+  // Reset zoom 按钮
+  const resetButton = zoomControls.append("g")
+    .attr("class", "zoom-button zoom-reset")
     .on("click", () => {
-      detailedChartSvg.transition().duration(300).call(zoom.scaleBy, 0.67);
+      detailedChartSvg.transition().duration(300).call(zoom.transform, d3.zoomIdentity);
     });
-  
-  // Reset zoom button
-  zoomControls.append("rect")
+
+  resetButton.append("rect")
     .attr("x", 80)
     .attr("y", -20)
     .attr("width", 30)
     .attr("height", 30)
     .attr("rx", 5)
     .attr("fill", "#f0f0f0")
-    .attr("stroke", "#ccc")
-    .on("click", () => {
-      detailedChartSvg.transition().duration(300).call(zoom.transform, d3.zoomIdentity);
-    });
-  
-  zoomControls.append("text")
+    .attr("stroke", "#ccc");
+
+  resetButton.append("text")
     .attr("x", 95)
     .attr("y", 0)
     .attr("text-anchor", "middle")
     .text("⟲")
     .style("font-size", "16px")
-    .style("user-select", "none")
-    .on("click", () => {
-      detailedChartSvg.transition().duration(300).call(zoom.transform, d3.zoomIdentity);
-    });
+    .style("user-select", "none");
+
   
   // Add legend
   const legendGroup = g.append("g")
