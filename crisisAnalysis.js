@@ -1008,7 +1008,6 @@ function initInterventionTree(centerTime) {
     .on("mouseover", showNodeDetails)
     .on("mouseout", function() {
       tooltip.transition().duration(500).style("opacity", 0);
-      chartArea.select(".tracking-line").remove();
     })
     .on("click", (event, d) => {
       // Handle clicks for intervention nodes
