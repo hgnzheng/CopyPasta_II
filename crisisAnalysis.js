@@ -197,8 +197,9 @@ function createBiosignalCheckboxes(signals, startTime, endTime, centerTime) {
     });
   });
 
-  // Fetch data for initially selected signals and draw chart
-  const promises = selectedSignals.map(signal => fetchSignalData(signal.tid, startTime, endTime));
+  // Fetch data for all siginals and draw chart for selectedSignals
+  // const promises = selectedSignals.map(signal => fetchSignalData(signal.tid, startTime, endTime));
+  const promises = signals.map(signal => fetchSignalData(signal.tid, startTime, endTime));
   
   Promise.all(promises)
     .then(() => {
