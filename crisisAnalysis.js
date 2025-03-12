@@ -555,34 +555,74 @@ const chartArea = chartContainer.append("g")
         return;
       }
       
-      const path = chartArea.append("path")
-        .datum(validData)
-        .attr("class", "signal-line")
-        .attr("fill", "none")
-        .attr("stroke", signal.color)
-        .attr("stroke-width", 2)
-        .attr("d", line);
-      
-      // Add a smooth enter animation
-      const pathLength = path.node().getTotalLength();
-      path.attr("stroke-dasharray", pathLength + " " + pathLength)
-        .attr("stroke-dashoffset", pathLength)
-        .transition()
-        .duration(1000)
-        .attr("stroke-dashoffset", 0);
+      const clipId = "clip-signal-" + signal.tid;
+    let defs = detailedChartSvg.select("defs");
+    if (defs.empty()) {
+      defs = detailedChartSvg.append("defs");
     }
-  });
-  
+    // 如果之前已经存在同样 id 的 clipPath，先移除它
+    defs.select("#" + clipId).remove();
+    defs.append("clipPath")
+      .attr("id", clipId)
+      .append("rect")
+      .attr("width", 0)        // 初始宽度为 0，动画时逐渐增大
+      .attr("height", height); // 高度与图表区域一致
+
+    // 绘制信号路径，保持原有的样式（例如实线或 dash 样式不变）
+    const path = chartArea.append("path")
+      .datum(validData)
+      .attr("class", "signal-line")
+      .attr("fill", "none")
+      .attr("stroke", signal.color)
+      .attr("stroke-width", 2)
+      .attr("vector-effect", "non-scaling-stroke")
+      .attr("d", line)
+      .attr("clip-path", `url(#${clipId})`);
+    
+    // 动画 clipPath 的矩形宽度，从 0 增加到完整宽度，从而逐步“揭示”路径
+    d3.select(`#${clipId} rect`)
+      .transition()
+      .duration(1000)
+      .ease(d3.easeLinear)
+      .attr("width", width);
+  }
+});
   // Add simulation data if available
   if (simulatedData.length > 0) {
-    chartArea.append("path")
+    // 创建一个 clipPath，用于限制虚线显示区域
+    const clipId = "clip-sim";
+    // 确保 defs 已经存在，否则先创建
+    let defs = detailedChartSvg.select("defs");
+    if (defs.empty()) {
+      defs = detailedChartSvg.append("defs");
+    }
+    
+    // 定义 clipPath，初始宽度为 0，高度为图表高度
+    defs.append("clipPath")
+      .attr("id", clipId)
+      .append("rect")
+      .attr("width", 0)
+      .attr("height", height);
+      
+    // 绘制虚线路径，附加 clipPath
+    const simPath = chartArea.append("path")
       .datum(simulatedData)
       .attr("class", "simulation-line")
       .attr("fill", "none")
       .attr("stroke", colors.simulation)
       .attr("stroke-width", 2.5)
+      .attr("vector-effect", "non-scaling-stroke")
       .attr("stroke-dasharray", "5,5")
+      .attr("clip-path", `url(#${clipId})`)
       .attr("d", line);
+      
+    // 动画 clipPath 的 rect 宽度，从 0 到图表宽度，
+    // 实现 dash 虚线从左到右显示的效果
+    d3.select(`#${clipId} rect`)
+      .transition()
+      .duration(1000)
+      .ease(d3.easeLinear)
+      .attr("width", width);
   }
   
   // Add tooltip for data exploration
@@ -719,6 +759,9 @@ const chartArea = chartContainer.append("g")
         .call(g => g.selectAll(".tick line")
           .attr("stroke", "#eee")
           .attr("stroke-dasharray", "3,3"));
+      
+      // chartArea.selectAll(".simulation-line")
+      //   .attr("stroke-dasharray", (5 / t.k) + ", " + (5 / t.k));
     });
 
     if (preservedTransform) {
