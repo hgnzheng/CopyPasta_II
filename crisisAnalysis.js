@@ -1,5 +1,5 @@
 // crisisAnalysis.js
-
+showLoadingOverlay("Initializing dashboard...");
 // We'll store loaded data for each TID in a dictionary
 let loadedData = {};
 // We'll store an array for the "simulation" line
@@ -209,15 +209,25 @@ function createBiosignalCheckboxes(signals, startTime, endTime, centerTime) {
   // Fetch data for all siginals and draw chart for selectedSignals
   // const promises = selectedSignals.map(signal => fetchSignalData(signal.tid, startTime, endTime));
   const promises = signals.map(signal => fetchSignalData(signal.tid, startTime, endTime));
-  
+
   Promise.all(promises)
     .then(() => {
+      // 数据加载完毕后，可以在这里隐藏加载覆盖层
+      const overlay = document.getElementById('loadingOverlay');
+      if (overlay) {
+        overlay.classList.remove('visible');
+      }
       refreshChart(startTime, endTime, centerTime);
-      // Initialize intervention tree after data is loaded
+      // 初始化干预树
       initInterventionTree(centerTime);
     })
     .catch(error => {
       console.error("Error loading initial data:", error);
+      // 同样在错误处理里隐藏加载覆盖层
+      const overlay = document.getElementById('loadingOverlay');
+      if (overlay) {
+        overlay.classList.remove('visible');
+      }
     });
 }
 
@@ -228,20 +238,11 @@ function fetchSignalData(tid, startT, endT) {
     return Promise.resolve(loadedData[tid]);
   }
   
-  // Show loading message
-  const loadingMessage = document.createElement("div");
-  loadingMessage.className = "loading-message";
-  loadingMessage.textContent = `Loading signal data for ${tid}...`;
-  document.getElementById("detailedChartArea").appendChild(loadingMessage);
-  
   // Check if we have the data API available
   if (window.dataAPI) {
     // Use our local data API
     return window.dataAPI.getSignalData(tid, startT, endT)
       .then(data => {
-        // Remove loading message
-        loadingMessage.remove();
-        
         // If we got no data or very little data, generate demo data instead
         if (!data || data.length < 5) {
           console.warn(`Received insufficient data for ${tid} (${data ? data.length : 0} points). Using demo data.`);
@@ -255,7 +256,6 @@ function fetchSignalData(tid, startT, endT) {
       })
       .catch(error => {
         console.error(`Error loading signal data from data API for ${tid}:`, error);
-        loadingMessage.textContent = `Using demo data for ${tid}`;
         
         // Generate demo data as fallback
         const demoData = generateDemoData(tid, startT, endT);
@@ -269,9 +269,6 @@ function fetchSignalData(tid, startT, endT) {
     
     return d3.csv(url, d3.autoType)
       .then(data => {
-        // Remove loading message
-        loadingMessage.remove();
-        
         // Process data
         data.forEach(d => {
           d.time = +d.Time;
@@ -297,7 +294,6 @@ function fetchSignalData(tid, startT, endT) {
       })
       .catch(error => {
         console.error(`Error loading signal data for ${tid}:`, error);
-        loadingMessage.textContent = `Using demo data for ${tid}`;
         
         // Generate demo data as fallback
         const demoData = generateDemoData(tid, startT, endT);
@@ -1579,4 +1575,33 @@ function generateDemoData(tid, startTime, endTime) {
   }
   
   return result;
+}
+
+function showLoadingOverlay(message = 'Loading...') {
+  const overlay = document.getElementById('loadingOverlay');
+  
+  if (!overlay) {
+    // Create loading overlay if it doesn't exist
+    const newOverlay = document.createElement('div');
+    newOverlay.id = 'loadingOverlay';
+    
+    newOverlay.innerHTML = `
+      <div class="loading-spinner"></div>
+      <div class="loading-text">Loading</div>
+      <div class="loading-message">${message}</div>
+    `;
+    
+    document.body.appendChild(newOverlay);
+    
+    // Force reflow/repaint before adding visible class
+    newOverlay.offsetHeight;
+    newOverlay.classList.add('visible');
+  } else {
+    // Update existing overlay
+    const messageEl = overlay.querySelector('.loading-message');
+    if (messageEl) {
+      messageEl.textContent = message;
+    }
+    overlay.classList.add('visible');
+  }
 }
