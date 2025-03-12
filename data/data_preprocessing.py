@@ -72,12 +72,12 @@ def clean_cases(cases_df):
             except:
                 print(f"Could not convert {col} to datetime, skipping")
     
-    # Extract operation type and medical service
-    if 'opname' in cases_df.columns:
-        cases_df['operation_type'] = cases_df['opname'].apply(extract_operation_type)
-    else:
-        # If opname doesn't exist, try to extract from other fields or set as unknown
-        cases_df['operation_type'] = 'unknown'
+    # # Extract operation type and medical service
+    # if 'opname' in cases_df.columns:
+    #     cases_df['operation_type'] = cases_df['opname'].apply(extract_operation_type)
+    # else:
+    #     # If opname doesn't exist, try to extract from other fields or set as unknown
+    #     cases_df['operation_type'] = 'unknown'
     
     # Create a complexity score based on available data
     # Use ASA score, age, and procedure type if available
@@ -164,11 +164,11 @@ def clean_tracks(tracks_df):
     # Handle missing values
     tracks_df = tracks_df.dropna(subset=['caseid'])
     
-    # Categorize tracks
-    if 'tname' in tracks_df.columns:
-        tracks_df['track_category'] = tracks_df['tname'].apply(categorize_track)
-    else:
-        tracks_df['track_category'] = 'unknown'
+    # # Categorize tracks
+    # if 'tname' in tracks_df.columns:
+    #     tracks_df['track_category'] = tracks_df['tname'].apply(categorize_track)
+    # else:
+    #     tracks_df['track_category'] = 'unknown'
     
     return tracks_df
 
@@ -274,7 +274,7 @@ def main():
     tracks_processed = clean_tracks(tracks_df)
     
     # Create case hierarchy
-    hierarchy = create_case_hierarchy(cases_processed)
+    # hierarchy = create_case_hierarchy(cases_processed)
     
     # Save processed data
     print("Saving processed data...")
@@ -282,9 +282,9 @@ def main():
     labs_processed.to_csv(os.path.join(processed_dir, 'labs_processed.txt'), index=False)
     tracks_processed.to_csv(os.path.join(processed_dir, 'tracks_processed.txt'), index=False)
     
-    # Save hierarchy to JSON
-    with open(os.path.join(processed_dir, 'case_hierarchy.json'), 'w') as f:
-        json.dump(hierarchy, f)
+    # # Save hierarchy to JSON
+    # with open(os.path.join(processed_dir, 'case_hierarchy.json'), 'w') as f:
+    #     json.dump(hierarchy, f)
     
     print("Data preprocessing complete!")
 
