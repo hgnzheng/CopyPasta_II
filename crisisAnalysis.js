@@ -19,10 +19,10 @@ const colors = {
   signal2: "#EA4335", // Google red
   signal3: "#FBBC05", // Google yellow
   signal4: "#34A853", // Google green
-  signal5: "#673AB7", // Purple
-  signal6: "#FF5722", // Deep Orange
-  signal7: "#009688", // Teal
-  signal8: "#795548", // Brown
+  signal5: "#90A4AE", // Purple
+  signal6: "#E040FB", // Deep Orange
+  signal7: "#26C6DA", // Teal
+  signal8: "#7986CB", // Brown
   simulation: "#FF9800", // Orange
   timeMarker: "rgba(0, 0, 0, 0.5)",
   interventionA: "#4CAF50", // Green
