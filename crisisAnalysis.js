@@ -914,6 +914,18 @@ const chartArea = chartContainer.append("g")
     return closestDist <= 5 ? closest : null;
   }
 
+  if (selectedSignals.length !== 1) {
+    d3.select(".crisis-right-panel").selectAll(":not(.simulation-only-hint)")
+      .style("display", "none");
+    d3.select(".crisis-right-panel").select(".simulation-only-hint")
+      .style("display", "block");
+    chartArea.selectAll(".simulation-line").remove();
+  } else {
+    d3.select(".crisis-right-panel").selectAll(":not(.simulation-only-hint)")
+      .style("display", null);
+    d3.select(".crisis-right-panel").select(".simulation-only-hint")
+      .style("display", "none");
+  }
   
 }
 
