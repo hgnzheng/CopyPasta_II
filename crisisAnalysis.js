@@ -35,7 +35,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const urlParams = new URLSearchParams(window.location.search);
     const caseId = urlParams.get("caseId") || 1;
     const centerTime = urlParams.get("centerTime") || 0;
-    window.location.href = `index.html?caseId=${caseId}&time=${centerTime}`;
+    window.location.href = `index.html?caseId=${caseId}&time=${centerTime}#dashboard-view`;
   });
 
   // Parse URL params with better validation
