@@ -50,7 +50,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     showLoadingOverlay("Applying URL parameters...");
-    await delay(50);
+    await delay(100);
     showLoadingOverlay("Applying URL parameters...");
 
     if (urlTrackId) {
