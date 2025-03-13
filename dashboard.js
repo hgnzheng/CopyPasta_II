@@ -585,6 +585,19 @@ function checkForAnomalies() {
 // 2) LOAD DATA
 // ----------------------------------------------------------
 document.addEventListener("DOMContentLoaded", function() {
+  // Disable lab toggle by default
+  const labToggle = document.getElementById('labToggle');
+  if (labToggle) {
+    labToggle.checked = false;
+    labToggle.disabled = true;
+  }
+  
+  // Disable track selector by default
+  const trackSelector = document.getElementById('trackSelector');
+  if (trackSelector) {
+    trackSelector.disabled = true;
+  }
+  
   // Check if we have the data API available
   if (!window.dataAPI) {
     console.error("Data API not found - falling back to legacy data loading");
@@ -899,9 +912,25 @@ function showDefaultVisualization() {
       }
       // Add default option
       const defaultOption = document.createElement('option');
-      defaultOption.text = 'Default Visualization';
+      defaultOption.text = 'Track';
       defaultOption.value = '';
       trackSelect.add(defaultOption);
+      
+      // Disable track selector until a case is selected
+      trackSelect.disabled = true;
+    }
+    
+    // Disable lab toggle until a track is selected
+    const labToggle = document.getElementById('labToggle');
+    if (labToggle) {
+      labToggle.checked = false;
+      labToggle.disabled = true;
+    }
+    
+    // Hide lab results
+    const labResults = document.getElementById('labResults');
+    if (labResults) {
+      labResults.style.display = 'none';
     }
   } catch (e) {
     console.error("Error clearing interface selections:", e);
@@ -1259,6 +1288,9 @@ function updateCaseWithDataAPI(caseId) {
         .append("option")
         .attr("value", d => d.tid)
         .text(d => d.tname || `Track ${d.tid}`);
+      
+      // Enable the track selector now that we have a case selected
+      trackSelector.property("disabled", false);
 
       // On track change
       trackSelector.on("change", function() {
@@ -1269,12 +1301,26 @@ function updateCaseWithDataAPI(caseId) {
             timer = null;
           }
         }
+        
+        // Enable lab toggle when a track is selected
+        const labToggle = document.getElementById('labToggle');
+        if (labToggle) {
+          labToggle.disabled = false;
+        }
+        
         updateChartWithDataAPI(this.value);
       });
 
       // If we have at least one track, update the chart
       if (tracks.length > 0) {
         trackSelector.property("value", tracks[0].tid);
+        
+        // Enable lab toggle when a track is automatically selected
+        const labToggle = document.getElementById('labToggle');
+        if (labToggle) {
+          labToggle.disabled = false;
+        }
+        
         updateChartWithDataAPI(tracks[0].tid);
       } else {
         showInfoMessage("No track data available for this case. Showing default visualization.");
@@ -2584,43 +2630,29 @@ function updateCaseOptions() {
 
 // Event handler for case selection
 function onCaseSelectChange(event) {
-  console.log("Case selection changed:", event.target.value);
+  const caseId = event.target.value;
   
-  // Show loading indicator while we process
-  showLoadingOverlay("Loading selected case...");
-  
-  const caseId = parseInt(event.target.value, 10);
-  if (!caseId || isNaN(caseId)) {
-    console.warn("Invalid case ID selected:", event.target.value);
-    hideLoadingOverlay();
-    // showDefaultVisualization();
-    showDefaultMessage("The selected case could not be loaded.");
+  // If no case is selected, show default visualization
+  if (!caseId) {
+    showDefaultVisualization();
     return;
   }
   
-  try {
-    console.log("Selected case ID:", caseId);
-    
-    // Highlight selected case in dropdown
-    const caseSelect = document.getElementById('caseSelector');
-    if (caseSelect) {
-      for (let i = 0; i < caseSelect.options.length; i++) {
-        if (parseInt(caseSelect.options[i].value, 10) === caseId) {
-          caseSelect.selectedIndex = i;
-          break;
-        }
-      }
-    }
-    
-    // Load the selected case
-    updateCaseWithDataAPI(caseId);
-  } catch (error) {
-    console.error("Error updating case:", error);
-    hideLoadingOverlay();
-    showErrorMessage("Failed to update case. Using default visualization instead.");
-    // showDefaultVisualization();
-    showDefaultMessage("The selected case could not be loaded.");
+  // Disable lab toggle until a track is selected
+  const labToggle = document.getElementById('labToggle');
+  if (labToggle) {
+    labToggle.checked = false;
+    labToggle.disabled = true;
   }
+  
+  // Hide lab results
+  const labResults = document.getElementById('labResults');
+  if (labResults) {
+    labResults.style.display = 'none';
+  }
+  
+  // Update the case
+  updateCaseWithDataAPI(caseId);
 }
 
 // Generate data-driven annotations based on actual data points
