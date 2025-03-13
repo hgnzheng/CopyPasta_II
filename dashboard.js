@@ -97,37 +97,6 @@ document
     }
   });
 
-// Listen for URL parameters on page load to handle returns from crisis view
-document.addEventListener('DOMContentLoaded', function() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const caseId = urlParams.get('caseId');
-  const time = urlParams.get('time');
-  
-  if (caseId) {
-    // If we have a caseId parameter, select that case
-    setTimeout(() => {
-      const caseSelect = document.getElementById('caseSelector');
-      if (caseSelect && caseSelect.options.length > 0) {
-        for (let i = 0; i < caseSelect.options.length; i++) {
-          if (caseSelect.options[i].value == caseId) {
-            caseSelect.selectedIndex = i;
-            caseSelect.dispatchEvent(new Event('change'));
-            break;
-          }
-        }
-      }
-      
-      // If we also have a time parameter, set the current time
-      if (time && typeof currentTime !== 'undefined') {
-        setTimeout(() => {
-          currentTime = parseFloat(time);
-          updatePlayback();
-          updateTimeDisplay(currentTime, getCurrentValue());
-        }, 500);
-      }
-    }, 500);
-  }
-});
 
 // ----------------------------------------------------------
 // 0) Basics
@@ -221,7 +190,10 @@ function updateAnomaliesList(anomalies, caseId) {
     });
     
     anomalyItem.querySelector('.analyze-btn').addEventListener('click', () => {
-      window.location.href = `crisisAnalysis.html?caseId=${caseId}&time=${anomaly.time}`;
+      const operationType = document.getElementById('operationCategory').value;
+      const complexity = document.getElementById('complexityLevel').value;
+      const trackId = document.getElementById('trackSelector').value;
+      window.location.href = `crisisAnalysis.html?caseId=${caseId}&centerTime=${anomaly.time}&start=${anomaly.time - 30}&end=${anomaly.time + 30}&operationType=${operationType}&complexity=${complexity}&trackId=${trackId}`;
     });
     
     scrollContainer.appendChild(anomalyItem);
@@ -566,7 +538,10 @@ function checkForAnomalies() {
       
       marker.on("click", function() {
         // Navigate to crisis analysis page
-        window.location.href = `crisisAnalysis.html?caseId=${caseId}&centerTime=${anomaly.time}&start=${anomaly.time-30}&end=${anomaly.time+30}`;
+        const operationType = document.getElementById('operationCategory').value;
+        const complexity = document.getElementById('complexityLevel').value;
+        const trackId = document.getElementById('trackSelector').value;
+        window.location.href = `crisisAnalysis.html?caseId=${caseId}&centerTime=${anomaly.time}&start=${anomaly.time - 30}&end=${anomaly.time + 30}&operationType=${operationType}&complexity=${complexity}&trackId=${trackId}`;
       });
       
       // Create mini marker in overview timeline
@@ -754,7 +729,7 @@ function initializeWithDataAPI() {
       }
       
       // Hide loading overlay
-      hideLoadingOverlay();
+      // hideLoadingOverlay();
       
       return cases;
     })
@@ -861,351 +836,354 @@ function showDefaultMessage(message) {
 
 
 // Create a default visualization without relying on real data
-function showDefaultVisualization() {
-  console.log("Creating default visualization");
+// function showDefaultVisualization() {
+//   console.log("Creating default visualization");
   
-  // Clear any existing chart
-  d3.select("#chart").select("svg").remove();
+//   // Clear any existing chart
+//   d3.select("#chart").select("svg").remove();
   
-  // Default time range
-  const startTime = 0;
-  const endTime = 1000;
+//   // Default time range
+//   const startTime = 0;
+//   const endTime = 1000;
   
-  // Get default data
-  let defaultData = [];
-  if (window.dataAPI && typeof window.dataAPI.generateDefaultData === 'function') {
-    defaultData = window.dataAPI.generateDefaultData(startTime, endTime);
-  } else {
-    // In case dataAPI is not available, generate simple data here
-    const numPoints = 1000;
-    const step = (endTime - startTime) / numPoints;
+//   // Get default data
+//   let defaultData = [];
+//   if (window.dataAPI && typeof window.dataAPI.generateDefaultData === 'function') {
+//     defaultData = window.dataAPI.generateDefaultData(startTime, endTime);
+//   } else {
+//     // In case dataAPI is not available, generate simple data here
+//     const numPoints = 1000;
+//     const step = (endTime - startTime) / numPoints;
     
-    for (let i = 0; i < numPoints; i++) {
-      const time = startTime + i * step;
-      const value = 80 + 10 * Math.sin(time / 10) + 5 * Math.sin(time / 60) + (Math.random() - 0.5) * 3;
-      defaultData.push({
-        time: time,
-        value: value,
-        minValue: value - 1,
-        maxValue: value + 1
-      });
-    }
-  }
+//     for (let i = 0; i < numPoints; i++) {
+//       const time = startTime + i * step;
+//       const value = 80 + 10 * Math.sin(time / 10) + 5 * Math.sin(time / 60) + (Math.random() - 0.5) * 3;
+//       defaultData.push({
+//         time: time,
+//         value: value,
+//         minValue: value - 1,
+//         maxValue: value + 1
+//       });
+//     }
+//   }
   
-  // Clear interface selections to match the default state
-  try {
-    // Clear dropdown selections
-    const operationSelect = document.getElementById('operationCategory');
-    if (operationSelect) operationSelect.selectedIndex = 0;
+//   // Clear interface selections to match the default state
+//   try {
+//     // Clear dropdown selections
+//     const operationSelect = document.getElementById('operationCategory');
+//     if (operationSelect) operationSelect.selectedIndex = 0;
     
-    const complexitySelect = document.getElementById('complexityLevel');
-    if (complexitySelect) complexitySelect.selectedIndex = 0;
+//     const complexitySelect = document.getElementById('complexityLevel');
+//     if (complexitySelect) complexitySelect.selectedIndex = 0;
     
-    const caseSelect = document.getElementById('caseSelector');
-    if (caseSelect) caseSelect.selectedIndex = 0;
+//     const caseSelect = document.getElementById('caseSelector');
+//     if (caseSelect) caseSelect.selectedIndex = 0;
     
-    const trackSelect = document.getElementById('trackSelector');
-    if (trackSelect) {
-      // Clear existing options
-      while (trackSelect.options.length > 0) {
-        trackSelect.remove(0);
-      }
-      // Add default option
-      const defaultOption = document.createElement('option');
-      defaultOption.text = 'Track';
-      defaultOption.value = '';
-      trackSelect.add(defaultOption);
+//     const trackSelect = document.getElementById('trackSelector');
+//     if (trackSelect) {
+//       // Clear existing options
+//       while (trackSelect.options.length > 0) {
+//         trackSelect.remove(0);
+//       }
+//       // Add default option
+//       const defaultOption = document.createElement('option');
+//       defaultOption.text = 'Track';
+//       defaultOption.value = '';
+//       trackSelect.add(defaultOption);
       
-      // Disable track selector until a case is selected
-      trackSelect.disabled = true;
-    }
+//       // Disable track selector until a case is selected
+//       trackSelect.disabled = true;
+//     }
     
-    // Disable lab toggle until a track is selected
-    const labToggle = document.getElementById('labToggle');
-    if (labToggle) {
-      labToggle.checked = false;
-      labToggle.disabled = true;
-    }
+//     // Disable lab toggle until a track is selected
+//     const labToggle = document.getElementById('labToggle');
+//     if (labToggle) {
+//       labToggle.checked = false;
+//       labToggle.disabled = true;
+//     }
     
-    // Hide lab results
-    const labResults = document.getElementById('labResults');
-    if (labResults) {
-      labResults.style.display = 'none';
-    }
-  } catch (e) {
-    console.error("Error clearing interface selections:", e);
-  }
+//     // Hide lab results
+//     const labResults = document.getElementById('labResults');
+//     if (labResults) {
+//       labResults.style.display = 'none';
+//     }
+//   } catch (e) {
+//     console.error("Error clearing interface selections:", e);
+//   }
   
-  // Set up the chart with default data
-  const svg = d3.select("#chart")
-    .append("svg")
-    .attr("width", width + margin.left + margin.right)
-    .attr("height", height + margin.top + margin.bottom)
-    .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
-    .attr("preserveAspectRatio", "xMidYMid meet")
-    .append("g")
-    .attr("transform", `translate(${margin.left},${margin.top})`);
+//   // Set up the chart with default data
+//   const svg = d3.select("#chart")
+//     .append("svg")
+//     .attr("width", width + margin.left + margin.right)
+//     .attr("height", height + margin.top + margin.bottom)
+//     .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
+//     .attr("preserveAspectRatio", "xMidYMid meet")
+//     .append("g")
+//     .attr("transform", `translate(${margin.left},${margin.top})`);
   
-  // Add title
-  svg.append("text")
-    .attr("class", "chart-title")
-    .attr("x", width / 2)
-    .attr("y", -margin.top / 2 + 5)
-    .attr("text-anchor", "middle")
-    .attr("dominant-baseline", "central")
-    .text("Patient Biosignal Monitoring");
+//   // Add title
+//   svg.append("text")
+//     .attr("class", "chart-title")
+//     .attr("x", width / 2)
+//     .attr("y", -margin.top / 2 + 5)
+//     .attr("text-anchor", "middle")
+//     .attr("dominant-baseline", "central")
+//     .text("Patient Biosignal Monitoring");
   
-  // Add subtitle
-  svg.append("text")
-    .attr("class", "chart-subtitle")
-    .attr("x", width / 2)
-    .attr("y", -margin.top / 2 + 30)
-    .attr("text-anchor", "middle")
-    .attr("dominant-baseline", "central")
-    .text("Default Heart Rate Visualization");
+//   // Add subtitle
+//   svg.append("text")
+//     .attr("class", "chart-subtitle")
+//     .attr("x", width / 2)
+//     .attr("y", -margin.top / 2 + 30)
+//     .attr("text-anchor", "middle")
+//     .attr("dominant-baseline", "central")
+//     .text("Default Heart Rate Visualization");
   
-  // Set up scales
-  const xScale = d3.scaleLinear()
-    .range([0, width])
-    .domain([startTime, endTime]);
+//   // Set up scales
+//   const xScale = d3.scaleLinear()
+//     .range([0, width])
+//     .domain([startTime, endTime]);
   
-  const valueExtent = d3.extent(defaultData, d => d.value);
-  const yScale = d3.scaleLinear()
-    .range([height, 0])
-    .domain([valueExtent[0] - 5, valueExtent[1] + 5]);
+//   const valueExtent = d3.extent(defaultData, d => d.value);
+//   const yScale = d3.scaleLinear()
+//     .range([height, 0])
+//     .domain([valueExtent[0] - 5, valueExtent[1] + 5]);
   
-  // Save scales globally
-  window.mainXScale = xScale;
-  window.mainYScale = yScale;
-  window.currentTrackData = defaultData;
+//   // Save scales globally
+//   window.mainXScale = xScale;
+//   window.mainYScale = yScale;
+//   window.currentTrackData = defaultData;
   
-  // Add clip path
-  svg.append("defs").append("clipPath")
-    .attr("id", "clip")
-    .append("rect")
-    .attr("width", width)
-    .attr("height", height);
+//   // Add clip path
+//   svg.append("defs").append("clipPath")
+//     .attr("id", "clip")
+//     .append("rect")
+//     .attr("width", width)
+//     .attr("height", height);
   
-  // Add background grid
-  const gridG = svg.append("g")
-    .attr("class", "grid-lines");
+//   // Add background grid
+//   const gridG = svg.append("g")
+//     .attr("class", "grid-lines");
   
-  // Add X grid lines
-  gridG.append("g")
-    .attr("class", "grid x-grid")
-    .attr("transform", `translate(0,${height})`)
-    .call(d3.axisBottom(xScale)
-      .tickSize(-height)
-      .tickFormat("")
-    );
+//   // Add X grid lines
+//   gridG.append("g")
+//     .attr("class", "grid x-grid")
+//     .attr("transform", `translate(0,${height})`)
+//     .call(d3.axisBottom(xScale)
+//       .tickSize(-height)
+//       .tickFormat("")
+//     );
   
-  // Add Y grid lines
-  gridG.append("g")
-    .attr("class", "grid y-grid")
-    .call(d3.axisLeft(yScale)
-      .tickSize(-width)
-      .tickFormat("")
-    );
+//   // Add Y grid lines
+//   gridG.append("g")
+//     .attr("class", "grid y-grid")
+//     .call(d3.axisLeft(yScale)
+//       .tickSize(-width)
+//       .tickFormat("")
+//     );
   
-  const chartG = svg.append("g")
-    .attr("clip-path", "url(#clip)");
+//   const chartG = svg.append("g")
+//     .attr("clip-path", "url(#clip)");
   
-  // Create smooth line generator
-  const line = d3.line()
-    .x(d => xScale(d.time))
-    .y(d => yScale(d.value))
-    .curve(d3.curveCatmullRom.alpha(0.5));
+//   // Create smooth line generator
+//   const line = d3.line()
+//     .x(d => xScale(d.time))
+//     .y(d => yScale(d.value))
+//     .curve(d3.curveCatmullRom.alpha(0.5));
   
-  // Add range area if we have min/max values
-  if ('minValue' in defaultData[0] && 'maxValue' in defaultData[0]) {
-    const area = d3.area()
-      .x(d => xScale(d.time))
-      .y0(d => yScale(d.minValue))
-      .y1(d => yScale(d.maxValue))
-      .curve(d3.curveCatmullRom.alpha(0.5));
+//   // Add range area if we have min/max values
+//   if ('minValue' in defaultData[0] && 'maxValue' in defaultData[0]) {
+//     const area = d3.area()
+//       .x(d => xScale(d.time))
+//       .y0(d => yScale(d.minValue))
+//       .y1(d => yScale(d.maxValue))
+//       .curve(d3.curveCatmullRom.alpha(0.5));
     
-    chartG.append("path")
-      .datum(defaultData)
-      .attr("class", "range-area")
-      .attr("fill", "rgba(66, 133, 244, 0.2)")
-      .attr("d", area);
-  }
+//     chartG.append("path")
+//       .datum(defaultData)
+//       .attr("class", "range-area")
+//       .attr("fill", "rgba(66, 133, 244, 0.2)")
+//       .attr("d", area);
+//   }
   
-  // Add line
-  chartG.append("path")
-    .datum(defaultData)
-    .attr("class", "line")
-    .attr("fill", "none")
-    .attr("stroke", "#4285F4")
-    .attr("stroke-width", 2)
-    .attr("d", line);
+//   // Add line
+//   chartG.append("path")
+//     .datum(defaultData)
+//     .attr("class", "line")
+//     .attr("fill", "none")
+//     .attr("stroke", "#4285F4")
+//     .attr("stroke-width", 2)
+//     .attr("d", line);
   
-  // Add time marker
-  chartG.append("line")
-    .attr("class", "time-marker")
-    .attr("y1", 0)
-    .attr("y2", height)
-    .attr("x1", xScale(startTime))
-    .attr("x2", xScale(startTime))
-    .attr("stroke", "rgba(0, 0, 0, 0.6)")
-    .attr("stroke-width", 2)
-    .attr("stroke-dasharray", "4,4");
+//   // Add time marker
+//   chartG.append("line")
+//     .attr("class", "time-marker")
+//     .attr("y1", 0)
+//     .attr("y2", height)
+//     .attr("x1", xScale(startTime))
+//     .attr("x2", xScale(startTime))
+//     .attr("stroke", "rgba(0, 0, 0, 0.6)")
+//     .attr("stroke-width", 2)
+//     .attr("stroke-dasharray", "4,4");
   
-  // Add axes
-  const xAxis = d3.axisBottom(xScale)
-    .tickSizeOuter(0)
-    .tickPadding(10);
+//   // Add axes
+//   const xAxis = d3.axisBottom(xScale)
+//     .tickSizeOuter(0)
+//     .tickPadding(10);
   
-  const yAxis = d3.axisLeft(yScale)
-    .tickSizeOuter(0)
-    .tickPadding(10);
+//   const yAxis = d3.axisLeft(yScale)
+//     .tickSizeOuter(0)
+//     .tickPadding(10);
   
-  // X-axis
-  svg.append("g")
-    .attr("class", "x-axis")
-    .attr("transform", `translate(0,${height})`)
-    .call(xAxis);
+//   // X-axis
+//   svg.append("g")
+//     .attr("class", "x-axis")
+//     .attr("transform", `translate(0,${height})`)
+//     .call(xAxis);
   
-  // X-axis label
-  svg.append("text")
-    .attr("class", "x-label")
-    .attr("x", width / 2)
-    .attr("y", height + 40)
-    .attr("text-anchor", "middle")
-    .text("Time (seconds)");
+//   // X-axis label
+//   svg.append("text")
+//     .attr("class", "x-label")
+//     .attr("x", width / 2)
+//     .attr("y", height + 40)
+//     .attr("text-anchor", "middle")
+//     .text("Time (seconds)");
   
-  // Y-axis
-  svg.append("g")
-    .attr("class", "y-axis")
-    .call(yAxis);
+//   // Y-axis
+//   svg.append("g")
+//     .attr("class", "y-axis")
+//     .call(yAxis);
   
-  // Y-axis label
-  svg.append("text")
-    .attr("class", "y-label")
-    .attr("transform", "rotate(-90)")
-    .attr("x", -height / 2)
-    .attr("y", -45)
-    .attr("text-anchor", "middle")
-    .text("Heart Rate (BPM)");
+//   // Y-axis label
+//   svg.append("text")
+//     .attr("class", "y-label")
+//     .attr("transform", "rotate(-90)")
+//     .attr("x", -height / 2)
+//     .attr("y", -45)
+//     .attr("text-anchor", "middle")
+//     .text("Heart Rate (BPM)");
   
-  // Generate data-driven annotations
-  const annotations = generateDataDrivenAnnotations(defaultData, [startTime, endTime]);
+//   // Generate data-driven annotations
+//   const annotations = generateDataDrivenAnnotations(defaultData, [startTime, endTime]);
   
-  // Add annotation markers
-  const annotationGroup = svg.append("g")
-    .attr("class", "annotations");
+//   // Add annotation markers
+//   const annotationGroup = svg.append("g")
+//     .attr("class", "annotations");
   
-  annotationGroup.selectAll("circle")
-    .data(annotations)
-      .enter()
-    .append("circle")
-    .attr("cx", d => xScale(d.time))
-    .attr("cy", d => {
-      // Position based on the value at that time
-      const index = Math.floor(d.time / (endTime - startTime) * defaultData.length);
-      const point = defaultData[Math.min(Math.max(0, index), defaultData.length - 1)];
-      return yScale(point.value);
-    })
-    .attr("r", 6)
-    .attr("fill", d => d.baseColor)
-    .attr("stroke", "#fff")
-    .attr("stroke-width", 1)
-    .on("mouseover", function(event, d) {
-      // Show tooltip on hover
-      tooltip.transition()
-        .duration(200)
-        .style("opacity", 0.9);
-      tooltip.html(`
-        <div class="tooltip-content">
-          <div class="tooltip-header">${d.type}</div>
-          <div class="tooltip-text">${d.label}</div>
-          <div class="tooltip-text">Time: ${d.time.toFixed(1)}s</div>
-        </div>
-      `)
-        .style("left", (event.pageX + 10) + "px")
-        .style("top", (event.pageY - 28) + "px");
+//   annotationGroup.selectAll("circle")
+//     .data(annotations)
+//       .enter()
+//     .append("circle")
+//     .attr("cx", d => xScale(d.time))
+//     .attr("cy", d => {
+//       // Position based on the value at that time
+//       const index = Math.floor(d.time / (endTime - startTime) * defaultData.length);
+//       const point = defaultData[Math.min(Math.max(0, index), defaultData.length - 1)];
+//       return yScale(point.value);
+//     })
+//     .attr("r", 6)
+//     .attr("fill", d => d.baseColor)
+//     .attr("stroke", "#fff")
+//     .attr("stroke-width", 1)
+//     .on("mouseover", function(event, d) {
+//       // Show tooltip on hover
+//       tooltip.transition()
+//         .duration(200)
+//         .style("opacity", 0.9);
+//       tooltip.html(`
+//         <div class="tooltip-content">
+//           <div class="tooltip-header">${d.type}</div>
+//           <div class="tooltip-text">${d.label}</div>
+//           <div class="tooltip-text">Time: ${d.time.toFixed(1)}s</div>
+//         </div>
+//       `)
+//         .style("left", (event.pageX + 10) + "px")
+//         .style("top", (event.pageY - 28) + "px");
         
-      // Highlight the marker
-      d3.select(this)
-        .transition()
-        .duration(200)
-        .attr("r", 8)
-        .attr("stroke-width", 2);
-    })
-    .on("mouseout", function() {
-      // Hide tooltip
-      tooltip.transition()
-        .duration(500)
-        .style("opacity", 0);
+//       // Highlight the marker
+//       d3.select(this)
+//         .transition()
+//         .duration(200)
+//         .attr("r", 8)
+//         .attr("stroke-width", 2);
+//     })
+//     .on("mouseout", function() {
+//       // Hide tooltip
+//       tooltip.transition()
+//         .duration(500)
+//         .style("opacity", 0);
         
-      // Restore marker
-      d3.select(this)
-        .transition()
-        .duration(200)
-        .attr("r", 6)
-        .attr("stroke-width", 1);
-    })
-    .on("click", function(event, d) {
-      // Navigate to detailed view on click
-      const caseId = d3.select("#caseSelector").property("value");
-      window.location.href = `crisisAnalysis.html?caseId=${caseId}&centerTime=${d.time}&start=${d.time-30}&end=${d.time+30}`;
-    });
+//       // Restore marker
+//       d3.select(this)
+//         .transition()
+//         .duration(200)
+//         .attr("r", 6)
+//         .attr("stroke-width", 1);
+//     })
+//     .on("click", function(event, d) {
+//       // Navigate to detailed view on click
+//       const caseId = d3.select("#caseSelector").property("value");
+//       const operationType = document.getElementById('operationCategory').value;
+//       const complexity = document.getElementById('complexityLevel').value;
+//       const trackId = document.getElementById('trackSelector').value;
+//       window.location.href = `crisisAnalysis.html?caseId=${caseId}&centerTime=${d.time}&start=${d.time - 30}&end=${d.time + 30}&operationType=${operationType}&complexity=${complexity}&trackId=${trackId}`;
+//     });
   
-  // Update scrubber
-  d3.select("#scrubber")
-    .attr("min", startTime)
-    .attr("max", endTime)
-    .attr("step", (endTime - startTime) / 1000)
-    .property("value", startTime)
-    .on("input", function() {
-      currentTime = +this.value;
-      updatePlayback();
-    });
+//   // Update scrubber
+//   d3.select("#scrubber")
+//     .attr("min", startTime)
+//     .attr("max", endTime)
+//     .attr("step", (endTime - startTime) / 1000)
+//     .property("value", startTime)
+//     .on("input", function() {
+//       currentTime = +this.value;
+//       updatePlayback();
+//     });
   
-  // Add legend with improved positioning and styling
-  const legend = svg.append("g")
-    .attr("class", "legend")
-    .attr("transform", `translate(${width - 120}, 20)`);
+//   // Add legend with improved positioning and styling
+//   const legend = svg.append("g")
+//     .attr("class", "legend")
+//     .attr("transform", `translate(${width - 120}, 20)`);
     
-  // Add background rectangle for better visibility
-  legend.append("rect")
-    .attr("width", 100)
-    .attr("height", 80)
-    .attr("fill", "rgba(255, 255, 255, 0.9)")
-    .attr("rx", 5)
-    .attr("ry", 5)
-    .attr("stroke", "#ddd")
-    .attr("stroke-width", 1);
+//   // Add background rectangle for better visibility
+//   legend.append("rect")
+//     .attr("width", 100)
+//     .attr("height", 80)
+//     .attr("fill", "rgba(255, 255, 255, 0.9)")
+//     .attr("rx", 5)
+//     .attr("ry", 5)
+//     .attr("stroke", "#ddd")
+//     .attr("stroke-width", 1);
     
-  // Legend title
-  legend.append("text")
-    .attr("x", 50)
-    .attr("y", 15)
-    .attr("text-anchor", "middle")
-    .attr("font-weight", "bold")
-    .style("font-size", "10px")
-    .text("Legend");
+//   // Legend title
+//   legend.append("text")
+//     .attr("x", 50)
+//     .attr("y", 15)
+//     .attr("text-anchor", "middle")
+//     .attr("font-weight", "bold")
+//     .style("font-size", "10px")
+//     .text("Legend");
   
-  // Raw data
-  legend.append("line")
-    .attr("x1", 10)
-    .attr("y1", 30)
-    .attr("x2", 30)
-    .attr("y2", 30)
-    .attr("stroke", colors.mainLine || "#4285F4")
-    .attr("stroke-width", 2.5);
+//   // Raw data
+//   legend.append("line")
+//     .attr("x1", 10)
+//     .attr("y1", 30)
+//     .attr("x2", 30)
+//     .attr("y2", 30)
+//     .attr("stroke", colors.mainLine || "#4285F4")
+//     .attr("stroke-width", 2.5);
   
-  legend.append("text")
-    .attr("x", 35)
-    .attr("y", 33)
-    .text("Heart Rate")
-    .style("font-size", "10px");
+//   legend.append("text")
+//     .attr("x", 35)
+//     .attr("y", 33)
+//     .text("Heart Rate")
+//     .style("font-size", "10px");
   
-  // Store global settings
-  currentTime = startTime;
+//   // Store global settings
+//   currentTime = startTime;
   
-  console.log("Default visualization created");
-}
+//   console.log("Default visualization created");
+// }
 
 // Legacy loading method (fallback)
 function loadData() {
@@ -1268,12 +1246,26 @@ function updateCaseWithDataAPI(caseId) {
   window.dataAPI.getTracksForCase(caseId)
     .then(tracks => {
       console.log("Tracks loaded:", tracks ? tracks.length : 0);
+
+      tracks = tracks.map(d => {
+        // 找出所有键中，trim() 后等于 "tid" 的键
+        const tidKey = Object.keys(d).find(key => key.trim() === "tid");
+        if (tidKey && d[tidKey]) {
+          // 将找到的值赋给 d.tid 并清理空格、回车等
+          d.tid = d[tidKey].trim();
+          // 如果原键不是 "tid"，则删除它
+          if (tidKey !== "tid") {
+            delete d[tidKey];
+          }
+        }
+        return d;
+      });
       
       // Check if we got valid tracks back
       if (!tracks || tracks.length === 0) {
         console.warn("No tracks found for case:", caseId);
         showInfoMessage("No tracks found for the selected case. Showing default visualization.");
-        hideLoadingOverlay();
+        // hideLoadingOverlay();
         // showDefaultVisualization();
         showDefaultMessage("No tracks found for the selected case.");
         return;
@@ -1321,10 +1313,12 @@ function updateCaseWithDataAPI(caseId) {
           labToggle.disabled = false;
         }
         
+        
         updateChartWithDataAPI(tracks[0].tid);
+        
       } else {
         showInfoMessage("No track data available for this case. Showing default visualization.");
-        hideLoadingOverlay();
+        // hideLoadingOverlay();
         // showDefaultVisualization();
         showDefaultMessage("No track data available for this case.");
       }
@@ -1339,13 +1333,13 @@ function updateCaseWithDataAPI(caseId) {
           console.error("Error loading lab data:", error);
           d3.selectAll(".mini-anomaly-marker").remove();
           drawOverview();
-          hideLoadingOverlay();
+          // hideLoadingOverlay();
         });
     })
     .catch(error => {
       console.error("Error loading tracks for case:", error);
       showErrorMessage(`Error loading tracks: ${error.message}`);
-      hideLoadingOverlay();
+      // hideLoadingOverlay();
       // showDefaultVisualization();
       showDefaultMessage("The tracks could not be loaded.");
     });
@@ -1475,7 +1469,7 @@ function updateChartWithDataAPI(tid) {
           // Check if data is valid - if not, fall back to default visualization
           if (!data || !Array.isArray(data) || data.length === 0) {
             console.warn("No data received for track, showing default visualization");
-            hideLoadingOverlay();
+            // hideLoadingOverlay();
             // showDefaultVisualization();
             showDefaultMessage("No data available for this track.");
             return;
@@ -1758,7 +1752,10 @@ function updateChartWithDataAPI(tid) {
         .on("click", function(event, d) {
           // Navigate to detailed view on click
           const caseId = d3.select("#caseSelector").property("value");
-          window.location.href = `crisisAnalysis.html?caseId=${caseId}&centerTime=${d.time}&start=${d.time-30}&end=${d.time+30}`;
+          const operationType = document.getElementById('operationCategory').value;
+          const complexity = document.getElementById('complexityLevel').value;
+          const trackId = document.getElementById('trackSelector').value;
+          window.location.href = `crisisAnalysis.html?caseId=${caseId}&centerTime=${d.time}&start=${d.time - 30}&end=${d.time + 30}&operationType=${operationType}&complexity=${complexity}&trackId=${trackId}`;
         });
 
       // Update the scrubber slider range
@@ -1851,7 +1848,7 @@ function updateChartWithDataAPI(tid) {
           currentTime = timeExtent[0];
       
       // Hide loading indicator
-      hideLoadingOverlay();
+      // hideLoadingOverlay();
         } catch (innerError) {
           console.error("Error processing chart data:", innerError);
           hideLoadingOverlay();
@@ -2130,7 +2127,10 @@ function updateChartElements() {
       .on("click", function(event, d) {
         // Navigate to crisis analysis page
         const caseId = d3.select("#caseSelector").property("value");
-        window.location.href = `crisisAnalysis.html?caseId=${caseId}&centerTime=${d.time}&start=${d.time-30}&end=${d.time+30}`;
+        const operationType = document.getElementById('operationCategory').value;
+        const complexity = document.getElementById('complexityLevel').value;
+        const trackId = document.getElementById('trackSelector').value;
+        window.location.href = `crisisAnalysis.html?caseId=${caseId}&centerTime=${d.time}&start=${d.time - 30}&end=${d.time + 30}&operationType=${operationType}&complexity=${complexity}&trackId=${trackId}`;
       });
     
     // Remove old markers
@@ -2404,7 +2404,7 @@ async function loadCaseHierarchy() {
         
         console.log("Case hierarchy loaded successfully with", operationTypes.length, "operation types");
         
-        hideLoadingOverlay();
+        // hideLoadingOverlay();
         
         return caseHierarchy;
     } catch (error) {
@@ -2634,7 +2634,7 @@ function onCaseSelectChange(event) {
   
   // If no case is selected, show default visualization
   if (!caseId) {
-    showDefaultVisualization();
+    // showDefaultVisualization();
     return;
   }
   

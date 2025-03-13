@@ -694,7 +694,7 @@ header {
 .crisis-container {
     display: flex;
     flex-direction: row;
-    height: 760px; /* Adjust based on your layout */
+    /* height: 760px; */
     margin-bottom: 20px;
 }
 

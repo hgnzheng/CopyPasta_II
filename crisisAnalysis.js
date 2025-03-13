@@ -13,31 +13,57 @@ let zoom;
 
 let currentTransform = d3.zoomIdentity;
 
-// Color palette for consistent styling
-const colors = {
-  signal1: "#4285F4", // Google blue
-  signal2: "#EA4335", // Google red
-  signal3: "#FBBC05", // Google yellow
-  signal4: "#34A853", // Google green
-  signal5: "#90A4AE", // Purple
-  signal6: "#E040FB", // Deep Orange
-  signal7: "#26C6DA", // Teal
-  signal8: "#7986CB", // Brown
+// Number of signal colors needed
+const numSignals = 42;
+const saturation = 80;
+const lightness = 50;
+
+// Create an array of evenly spaced hues
+let hues = [];
+for (let i = 0; i < numSignals; i++) {
+  hues.push((i * 360 / numSignals));
+}
+
+// Shuffle the hues array using Fisher-Yates
+function shuffle(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+}
+shuffle(hues);
+
+// Build the signal colors object using the shuffled hues
+const signalColors = {};
+for (let i = 0; i < numSignals; i++) {
+  signalColors[`signal${i + 1}`] = `hsl(${Math.round(hues[i])}, ${saturation}%, ${lightness}%)`;
+}
+
+// Combine with fixed colors
+const colors = Object.assign({}, signalColors, {
   simulation: "#FF9800", // Orange
   timeMarker: "rgba(0, 0, 0, 0.5)",
   interventionA: "#4CAF50", // Green
-  interventionB: "#F44336" // Red
-};
+  interventionB: "#F44336"  // Red
+});
+
+console.log(colors);
+
 
 // On page load
 document.addEventListener("DOMContentLoaded", () => {
   // Back to Dashboard button
   document.getElementById("backButton").addEventListener("click", function () {
-    // Grab case/time from URL
+    // 从当前 URL 提取所有参数
     const urlParams = new URLSearchParams(window.location.search);
     const caseId = urlParams.get("caseId") || 1;
     const centerTime = urlParams.get("centerTime") || 0;
-    window.location.href = `index.html?caseId=${caseId}&time=${centerTime}#dashboard-view`;
+    const operationType = urlParams.get("operationType") || "";
+    const complexity = urlParams.get("complexity") || "";
+    const trackId = urlParams.get("trackId") || "fd869e25ba82a66cc95b38ed47110bf4f14bb368";
+    
+    // 构造新的 URL，将所有参数传递出去
+    window.location.href = `index.html?caseId=${caseId}&time=${centerTime}&operationType=${operationType}&complexity=${complexity}&trackId=${trackId}#dashboard-view`;
   });
 
   // Parse URL params with better validation
@@ -49,14 +75,21 @@ document.addEventListener("DOMContentLoaded", () => {
   let startTime = parseFloat(urlParams.get("start"));
   let endTime = parseFloat(urlParams.get("end"));
   let centerTime = parseFloat(urlParams.get("centerTime"));
-  
-  if (isNaN(startTime) || isNaN(endTime) || isNaN(centerTime)) {
+
+  if (isNaN(centerTime)) {
+    centerTime = 30;
+  }
+  else if (isNaN(startTime) || isNaN(endTime)) {
     // If any of the times are invalid, set defaults
     console.warn("Invalid time parameters in URL, using defaults");
-    startTime = 0;
-    endTime = 600; // 10 minute window
-    centerTime = 300; // Center point
+    startTime = centerTime - 30;
+    endTime = centerTime + 30;
   } else {
+    if (startTime < 0) {
+      startTime = startTime - startTime;
+      endTime = endTime - startTime;
+      centerTime = centerTime - startTime;
+    }
     // Validate the values are reasonable
     if (endTime - startTime > 3600) {
       console.warn("Time window too large, limiting to 1 hour");
@@ -83,19 +116,41 @@ document.addEventListener("DOMContentLoaded", () => {
     .then((csvText) => {
       const tracks = d3.csvParse(csvText);
 
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlTrackId = urlParams.get("trackId");
+      const urlCaseId = urlParams.get("caseId");
+
+      const targetTrack = tracks.find(
+        track =>
+          String(track.tid) === String(urlTrackId)
+      );
+
+      const targetPrefix = targetTrack.tname.split("/")[0].trim();
+
+      const filteredTracks = tracks.filter(track =>
+        track.tname && track.tname.includes("/") &&
+        track.tname.split("/")[0].trim() === targetPrefix &&
+        String(track.caseid) === String(urlCaseId)
+      );
+
       // Filter down to signals that we want
-      const biosignalsForCase = tracks
-        .filter((track) => track.tname && track.tname.includes("/"))
-        .slice(0, 8) // limit for demo
+      const biosignalsForCase = filteredTracks
         .map((track, index) => ({
           tid: track.tid,
           name: track.tname,
-          checked: index === 0, // Only the first signal checked by default
-          color: colors[`signal${index + 1}`] || "#999"
+          checked: urlTrackId ? String(urlTrackId) === String(track.tid) : index === 0,
+          color: colors[`signal${index + 1}`] || "#999",
+          type: track.tname.split("/")[0].trim()
         }));
+
+      if (!biosignalsForCase.some(signal => signal.checked)) {
+        biosignalsForCase[0].checked = true;
+      }
 
       selectedSignals = biosignalsForCase.filter(s => s.checked);
       createBiosignalCheckboxes(biosignalsForCase, startTime, endTime, centerTime);
+      document.getElementById("biosignal-title").innerHTML =
+        `Biosignals (<span style="color: gray;">${targetPrefix}</span>)`;
     })
     .catch((error) => {
       console.error("Error fetching track list:", error);
@@ -310,7 +365,7 @@ function refreshChart(startTime, endTime, centerTime, preservedTransform) {
   d3.select("#detailedChartArea").selectAll("*").remove();
   
   // Set dimensions for the chart
-  const margin = { top: 80, right: 60, bottom: 60, left: 60 };
+  const margin = { top: 80, right: 140, bottom: 60, left: 60 };
   const width = document.getElementById("detailedChartArea").clientWidth - margin.left - margin.right;
   const height = 400 - margin.top - margin.bottom;
   
@@ -369,33 +424,33 @@ const chartArea = chartContainer.append("g")
       .attr("class", "error-message");
       
     errorMessage.append("text")
-      .attr("x", width / 2)
-      .attr("y", height / 2 - 20)
+      .attr("x", width / 2 + 45)
+      .attr("y", height / 2 - 20 - 20)
       .attr("text-anchor", "middle")
       .attr("font-weight", "bold")
       .text("No data available for selected signals");
       
     errorMessage.append("text")
-      .attr("x", width / 2)
-      .attr("y", height / 2 + 10)
+      .attr("x", width / 2 + 45)
+      .attr("y", height / 2 + 10 - 20)
       .attr("text-anchor", "middle")
       .text("Please check that:");
       
     errorMessage.append("text")
-      .attr("x", width / 2)
-      .attr("y", height / 2 + 30)
+      .attr("x", width / 2 + 45)
+      .attr("y", height / 2 + 30 - 20)
       .attr("text-anchor", "middle")
       .text("1. At least one biosignal is selected");
       
     errorMessage.append("text")
-      .attr("x", width / 2)
-      .attr("y", height / 2 + 50)
+      .attr("x", width / 2 + 45)
+      .attr("y", height / 2 + 50 - 20)
       .attr("text-anchor", "middle")
       .text("2. The API endpoint is accessible");
       
     errorMessage.append("text")
-      .attr("x", width / 2)
-      .attr("y", height / 2 + 70)
+      .attr("x", width / 2 + 45)
+      .attr("y", height / 2 + 70 - 20)
       .attr("text-anchor", "middle")
       .text("3. Data exists for the selected time range");
     
@@ -693,7 +748,6 @@ const chartArea = chartContainer.append("g")
 
   
   // Add zooming behavior
-  // 在 zoom 回调中
   zoom = d3.zoom()
     .filter(function(event) {
       return event.target.closest('.overlay') || event.target.closest('.chart-area');
@@ -790,8 +844,8 @@ const chartArea = chartContainer.append("g")
     });
 
   zoomInButton.append("rect")
-    .attr("x", 0)
-    .attr("y", -20)
+    .attr("x", 100 + 10)
+    .attr("y", -10)
     .attr("width", 30)
     .attr("height", 30)
     .attr("rx", 5)
@@ -799,8 +853,8 @@ const chartArea = chartContainer.append("g")
     .attr("stroke", "#ccc");
 
   zoomInButton.append("text")
-    .attr("x", 15)
-    .attr("y", 0)
+    .attr("x", 115 + 10)
+    .attr("y", 10)
     .attr("text-anchor", "middle")
     .text("+")
     .style("font-size", "20px")
@@ -814,8 +868,8 @@ const chartArea = chartContainer.append("g")
     });
 
   zoomOutButton.append("rect")
-    .attr("x", 40)
-    .attr("y", -20)
+    .attr("x", 140 + 10)
+    .attr("y", -10)
     .attr("width", 30)
     .attr("height", 30)
     .attr("rx", 5)
@@ -823,8 +877,8 @@ const chartArea = chartContainer.append("g")
     .attr("stroke", "#ccc");
 
   zoomOutButton.append("text")
-    .attr("x", 55)
-    .attr("y", 0)
+    .attr("x", 155 + 10)
+    .attr("y", 10)
     .attr("text-anchor", "middle")
     .text("-")
     .style("font-size", "20px")
@@ -838,8 +892,8 @@ const chartArea = chartContainer.append("g")
     });
 
   resetButton.append("rect")
-    .attr("x", 80)
-    .attr("y", -20)
+    .attr("x", 180 + 10)
+    .attr("y", -10)
     .attr("width", 30)
     .attr("height", 30)
     .attr("rx", 5)
@@ -847,8 +901,8 @@ const chartArea = chartContainer.append("g")
     .attr("stroke", "#ccc");
 
   resetButton.append("text")
-    .attr("x", 95)
-    .attr("y", 0)
+    .attr("x", 195 + 10)
+    .attr("y", 10)
     .attr("text-anchor", "middle")
     .text("⟲")
     .style("font-size", "16px")
@@ -865,15 +919,15 @@ const chartArea = chartContainer.append("g")
       .attr("transform", `translate(0, ${i * 20})`);
     
     legendRow.append("line")
-      .attr("x1", 0)
+      .attr("x1", 160)
       .attr("y1", 0)
-      .attr("x2", 20)
+      .attr("x2", 180)
       .attr("y2", 0)
       .attr("stroke", signal.color)
       .attr("stroke-width", 2);
     
     legendRow.append("text")
-      .attr("x", 25)
+      .attr("x", 185)
       .attr("y", 4)
       .text(signal.name.split("/").pop())
       .style("font-size", "10px");
@@ -1114,29 +1168,38 @@ function generateTreeData(centerTime) {
   
   // Determine signal type for better contextual interventions
   let signalType = "unknown";
-  let eventTypes = ["hypotension", "bradycardia"]; // default events
-  
+  let eventTypes = []; // default empty
+
   if (selectedSignals.length > 0) {
+    // Use the signal's name for classification
     const signalName = selectedSignals[0].name.toLowerCase();
     
-    if (signalName.includes("hr") || signalName.includes("heart")) {
-      signalType = "heartrate";
-      eventTypes = ["bradycardia", "tachycardia"];
-    } else if (signalName.includes("bp") || signalName.includes("press")) {
-      signalType = "bloodpressure";
-      eventTypes = ["hypotension", "hypertension"];
-    } else if (signalName.includes("o2") || signalName.includes("spo2") || signalName.includes("oxygen")) {
-      signalType = "oxygen";
-      eventTypes = ["hypoxemia", "desaturation"];
-    } else if (signalName.includes("temp")) {
-      signalType = "temperature";
-      eventTypes = ["hypothermia", "hyperthermia"];
-    } else if (signalName.includes("eeg") || signalName.includes("bis")) {
+    // Check for known biosignals based on your list
+    if (signalName.includes("bis")) {
+      // BIS typically monitors brain function (e.g., Bispectral Index)
       signalType = "eeg";
       eventTypes = ["burst suppression", "awareness"];
-    } else if (signalName.includes("resp")) {
-      signalType = "respiration";
-      eventTypes = ["hypoventilation", "apnea"];
+    } else if (signalName.includes("cardioq") || signalName.includes("vigileo") || signalName.includes("ev1000")) {
+      // CardioQ, Vigileo, and EV1000 are often used in hemodynamic monitoring
+      // Here we assume events related to heart rate (alternatively, blood pressure could be used)
+      signalType = "heartrate";
+      eventTypes = ["bradycardia", "tachycardia"];
+    } else if (signalName.includes("invos")) {
+      // Invos monitors tissue oxygenation
+      signalType = "oxygen";
+      eventTypes = ["hypoxemia", "desaturation"];
+    } else if (
+      signalName.includes("primus") ||
+      signalName.includes("snuadc") ||
+      signalName.includes("solar8000") ||
+      signalName.includes("orchestra") ||
+      signalName.includes("fms") ||
+      signalName.includes("vigilance")
+    ) {
+      // These names are grouped as hemodynamic monitors.
+      // You can change this mapping based on your specific use case.
+      signalType = "bloodpressure";
+      eventTypes = ["hypotension", "hypertension"];
     }
   }
   
@@ -1159,7 +1222,7 @@ function generateTreeData(centerTime) {
             strategy: "Atropine",
             probability: generateProbability(75, caseVariation),
             eventType: eventType,
-            description: "Administer atropine to increase heart rate by blocking parasympathetic activity"
+            description: "Administer atropine to increase heart rate by blocking parasympathetic activity."
           },
           {
             name: "Intervention B",
@@ -1167,7 +1230,7 @@ function generateTreeData(centerTime) {
             strategy: "Pacing",
             probability: generateProbability(90, 1 - caseVariation),
             eventType: eventType,
-            description: "Apply transcutaneous pacing to directly stimulate cardiac contractions" 
+            description: "Apply transcutaneous pacing to stimulate cardiac contractions."
           }
         ];
       case "tachycardia":
@@ -1178,7 +1241,7 @@ function generateTreeData(centerTime) {
             strategy: "Beta Blockers",
             probability: generateProbability(82, caseVariation),
             eventType: eventType,
-            description: "Administer beta blockers to slow heart rate by blocking sympathetic stimulation"
+            description: "Administer beta blockers to slow heart rate by reducing sympathetic stimulation."
           },
           {
             name: "Intervention B",
@@ -1186,7 +1249,7 @@ function generateTreeData(centerTime) {
             strategy: "Cardioversion",
             probability: generateProbability(88, 1 - caseVariation),
             eventType: eventType,
-            description: "Apply synchronized electrical shock to reset heart rhythm"
+            description: "Apply synchronized electrical shock to restore normal heart rhythm."
           }
         ];
       case "hypotension":
@@ -1197,7 +1260,7 @@ function generateTreeData(centerTime) {
             strategy: "Fluid Bolus",
             probability: generateProbability(70, caseVariation),
             eventType: eventType,
-            description: "Administer IV fluids to increase blood volume and pressure"
+            description: "Administer IV fluids to increase blood volume and pressure."
           },
           {
             name: "Intervention B",
@@ -1205,7 +1268,7 @@ function generateTreeData(centerTime) {
             strategy: "Vasopressors",
             probability: generateProbability(85, 1 - caseVariation),
             eventType: eventType,
-            description: "Administer vasopressors to increase vascular tone and blood pressure"
+            description: "Administer vasopressors to raise vascular tone and blood pressure."
           }
         ];
       case "hypertension":
@@ -1216,7 +1279,7 @@ function generateTreeData(centerTime) {
             strategy: "Vasodilators",
             probability: generateProbability(80, caseVariation),
             eventType: eventType,
-            description: "Administer vasodilators to reduce systemic vascular resistance"
+            description: "Administer vasodilators to reduce systemic vascular resistance."
           },
           {
             name: "Intervention B",
@@ -1224,7 +1287,7 @@ function generateTreeData(centerTime) {
             strategy: "Beta Blockers",
             probability: generateProbability(75, 1 - caseVariation),
             eventType: eventType,
-            description: "Administer beta blockers to reduce cardiac output and blood pressure"
+            description: "Administer beta blockers to lower cardiac output and blood pressure."
           }
         ];
       case "hypoxemia":
@@ -1236,7 +1299,7 @@ function generateTreeData(centerTime) {
             strategy: "Increase FiO2",
             probability: generateProbability(85, caseVariation),
             eventType: eventType,
-            description: "Increase fraction of inspired oxygen to improve oxygenation"
+            description: "Increase the fraction of inspired oxygen to improve oxygenation."
           },
           {
             name: "Intervention B",
@@ -1244,7 +1307,45 @@ function generateTreeData(centerTime) {
             strategy: "PEEP Adjustment",
             probability: generateProbability(78, 1 - caseVariation),
             eventType: eventType,
-            description: "Increase positive end-expiratory pressure to recruit alveoli"
+            description: "Increase PEEP to recruit alveoli and enhance oxygenation."
+          }
+        ];
+      case "burst suppression":
+        return [
+          {
+            name: "Intervention A",
+            type: "intervention",
+            strategy: "Reduce Anesthetic Dose",
+            probability: generateProbability(70, caseVariation),
+            eventType: eventType,
+            description: "Lower anesthetic dosage to reduce burst suppression patterns."
+          },
+          {
+            name: "Intervention B",
+            type: "intervention",
+            strategy: "Increase Stimulation",
+            probability: generateProbability(75, 1 - caseVariation),
+            eventType: eventType,
+            description: "Apply external stimulation to mitigate burst suppression."
+          }
+        ];
+      case "awareness":
+        return [
+          {
+            name: "Intervention A",
+            type: "intervention",
+            strategy: "Deepen Anesthesia",
+            probability: generateProbability(80, caseVariation),
+            eventType: eventType,
+            description: "Increase anesthetic depth to prevent intraoperative awareness."
+          },
+          {
+            name: "Intervention B",
+            type: "intervention",
+            strategy: "Enhance Monitoring",
+            probability: generateProbability(85, 1 - caseVariation),
+            eventType: eventType,
+            description: "Improve monitoring and adjust anesthetics to avoid awareness."
           }
         ];
       default:
@@ -1255,7 +1356,7 @@ function generateTreeData(centerTime) {
             strategy: "Conservative Approach",
             probability: generateProbability(75, caseVariation),
             eventType: eventType,
-            description: "Apply standard treatment protocol with minimal invasiveness"
+            description: "Apply standard treatment with minimal invasiveness."
           },
           {
             name: "Intervention B",
@@ -1263,11 +1364,12 @@ function generateTreeData(centerTime) {
             strategy: "Aggressive Approach",
             probability: generateProbability(85, 1 - caseVariation),
             eventType: eventType,
-            description: "Apply intensive intervention with potential for faster response"
+            description: "Apply intensive intervention for faster response."
           }
         ];
     }
   };
+  
   
   // Create the tree structure
   return {
@@ -1604,3 +1706,17 @@ function showLoadingOverlay(message = 'Loading...') {
     overlay.classList.add('visible');
   }
 }
+
+
+document.addEventListener("DOMContentLoaded", () => {
+  // Wait a little for biosignalToggles to render (if necessary)
+  setTimeout(() => {
+    const crisis_container = document.querySelector(".crisis-container");
+    const toggles = document.getElementById("biosignalToggles");
+
+    if (crisis_container && toggles) {
+      console.log(toggles.offsetHeight)
+      crisis_container.style.height = `${toggles.offsetHeight + 500}px`;
+    }
+  }, 200); // Adjust delay as needed
+});
