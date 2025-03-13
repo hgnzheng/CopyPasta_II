@@ -9,7 +9,6 @@ document.addEventListener('DOMContentLoaded', async function() {
   
     // 如果所有参数都为空则直接跳过
     if (!urlCaseId || !urlOperationType || !urlComplexity || !urlTrackId) {
-      hideLoadingOverlay();
       return;
     }
 
