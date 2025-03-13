@@ -729,7 +729,8 @@ function initializeWithDataAPI() {
       }
       
       // Hide loading overlay
-      // hideLoadingOverlay();
+      // TODO check hideLoadingOverlay
+// hideLoadingOverlay();
       
       return cases;
     })
@@ -1265,7 +1266,8 @@ function updateCaseWithDataAPI(caseId) {
       if (!tracks || tracks.length === 0) {
         console.warn("No tracks found for case:", caseId);
         showInfoMessage("No tracks found for the selected case. Showing default visualization.");
-        // hideLoadingOverlay();
+        // TODO check hideLoadingOverlay
+// hideLoadingOverlay();
         // showDefaultVisualization();
         showDefaultMessage("No tracks found for the selected case.");
         return;
@@ -1318,7 +1320,8 @@ function updateCaseWithDataAPI(caseId) {
         
       } else {
         showInfoMessage("No track data available for this case. Showing default visualization.");
-        // hideLoadingOverlay();
+        // TODO check hideLoadingOverlay
+// hideLoadingOverlay();
         // showDefaultVisualization();
         showDefaultMessage("No track data available for this case.");
       }
@@ -1333,13 +1336,15 @@ function updateCaseWithDataAPI(caseId) {
           console.error("Error loading lab data:", error);
           d3.selectAll(".mini-anomaly-marker").remove();
           drawOverview();
-          // hideLoadingOverlay();
+          // TODO check hideLoadingOverlay
+// hideLoadingOverlay();
         });
     })
     .catch(error => {
       console.error("Error loading tracks for case:", error);
       showErrorMessage(`Error loading tracks: ${error.message}`);
-      // hideLoadingOverlay();
+      // TODO check hideLoadingOverlay
+// hideLoadingOverlay();
       // showDefaultVisualization();
       showDefaultMessage("The tracks could not be loaded.");
     });
@@ -1469,7 +1474,8 @@ function updateChartWithDataAPI(tid) {
           // Check if data is valid - if not, fall back to default visualization
           if (!data || !Array.isArray(data) || data.length === 0) {
             console.warn("No data received for track, showing default visualization");
-            // hideLoadingOverlay();
+            // TODO check hideLoadingOverlay
+// hideLoadingOverlay();
             // showDefaultVisualization();
             showDefaultMessage("No data available for this track.");
             return;
@@ -1848,7 +1854,8 @@ function updateChartWithDataAPI(tid) {
           currentTime = timeExtent[0];
       
       // Hide loading indicator
-      // hideLoadingOverlay();
+      // TODO check hideLoadingOverlay
+// hideLoadingOverlay();
         } catch (innerError) {
           console.error("Error processing chart data:", innerError);
           hideLoadingOverlay();
@@ -2404,7 +2411,8 @@ async function loadCaseHierarchy() {
         
         console.log("Case hierarchy loaded successfully with", operationTypes.length, "operation types");
         
-        // hideLoadingOverlay();
+        // TODO check hideLoadingOverlay
+// hideLoadingOverlay();
         
         return caseHierarchy;
     } catch (error) {
