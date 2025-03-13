@@ -284,6 +284,14 @@ function createBiosignalCheckboxes(signals, startTime, endTime, centerTime) {
         overlay.classList.remove('visible');
       }
     });
+
+    const crisis_container = document.querySelector(".crisis-container");
+    const toggles = document.getElementById("biosignalToggles");
+
+    if (crisis_container && toggles) {
+      console.log(toggles.offsetHeight)
+      crisis_container.style.height = `${toggles.offsetHeight + 500}px`;
+    }
 }
 
 // Fetch data for a specific signal
@@ -1708,15 +1716,9 @@ function showLoadingOverlay(message = 'Loading...') {
 }
 
 
-document.addEventListener("DOMContentLoaded", () => {
-  // Wait a little for biosignalToggles to render (if necessary)
-  setTimeout(() => {
-    const crisis_container = document.querySelector(".crisis-container");
-    const toggles = document.getElementById("biosignalToggles");
-
-    if (crisis_container && toggles) {
-      console.log(toggles.offsetHeight)
-      crisis_container.style.height = `${toggles.offsetHeight + 500}px`;
-    }
-  }, 400); // Adjust delay as needed
-});
+// document.addEventListener("DOMContentLoaded", () => {
+//   // Wait a little for biosignalToggles to render (if necessary)
+//   setTimeout(() => {
+    
+//   }, 400); // Adjust delay as needed
+// });
