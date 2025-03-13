@@ -16,7 +16,7 @@ let currentTransform = d3.zoomIdentity;
 // Number of signal colors needed
 const numSignals = 42;
 const saturation = 80;
-const lightness = 50;
+const lightness = 75;
 
 // Create an array of evenly spaced hues
 let hues = [];
