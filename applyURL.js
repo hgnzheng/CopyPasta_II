@@ -1,5 +1,4 @@
 // applyURL.js
-// applyURL.js
 document.addEventListener('DOMContentLoaded', async function() {
     // 从 URL 中提取参数
     const urlParams = new URLSearchParams(window.location.search);
@@ -9,14 +8,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     const urlTrackId = urlParams.get('trackId');
   
     // 如果所有参数都为空则直接跳过
-    if (!urlCaseId && !urlOperationType && !urlComplexity && !urlTrackId) {
+    if (!urlCaseId || !urlOperationType || !urlComplexity || !urlTrackId) {
       hideLoadingOverlay();
       return;
     }
 
     const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
   
-    // 显示加载提示（你提供的 showLoadingOverlay 函数将被调用）
     // showLoadingOverlay("Applying URL parameters...");
     await delay(100);
     showLoadingOverlay("Applying URL parameters...");
