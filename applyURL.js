@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   
     // 显示加载提示（你提供的 showLoadingOverlay 函数将被调用）
     // showLoadingOverlay("Applying URL parameters...");
-    await delay(100);
+    await delay(200);
     showLoadingOverlay("Applying URL parameters...");
     
     // 按顺序依次更新参数，每一步延时 1 秒后更新下一个
@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     showLoadingOverlay("Applying URL parameters...");
-    await delay(200);
+    await delay(400);
     showLoadingOverlay("Applying URL parameters...");
 
     if (urlCaseId) {

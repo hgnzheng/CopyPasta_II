@@ -1718,5 +1718,5 @@ document.addEventListener("DOMContentLoaded", () => {
       console.log(toggles.offsetHeight)
       crisis_container.style.height = `${toggles.offsetHeight + 500}px`;
     }
-  }, 200); // Adjust delay as needed
+  }, 400); // Adjust delay as needed
 });
