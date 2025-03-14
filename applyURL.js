@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
   
-    await delay(100);
+    await delay(200);
     showLoadingOverlay("Loading Plot...");
     
     if (urlOperationType) {
@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     showLoadingOverlay("Loading Plot...");
-    await delay(200);
+    await delay(400);
     showLoadingOverlay("Loading Plot...");
 
     if (urlCaseId) {
@@ -47,7 +47,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     showLoadingOverlay("Loading Plot...");
-    await delay(200);
+    await delay(400);
     showLoadingOverlay("Loading Plot...");
 
     if (urlTrackId) {
