@@ -409,7 +409,7 @@ header {
     min-width: 90px;
     flex-shrink: 0;
     font-weight: 500;
-    display: flex;
+    /* display: flex; */
     align-items: center;
     justify-content: center;
     gap: 8px;
