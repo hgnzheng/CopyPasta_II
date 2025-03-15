@@ -244,6 +244,7 @@ function updatePlayback() {
     const min = domain[0];
     const max = domain[1];
     const percentage = ((currentTime - min) / (max - min)) * 100;
+    document.getElementById("scrubber").value = percentage;
     
     // Update time marker position
     const timeMarker = d3.select(".time-marker");
@@ -1761,12 +1762,8 @@ function updateChartWithDataAPI(tid) {
 
       // Update the scrubber slider range
       d3.select("#scrubber")
-        .attr("min", timeExtent[0])
-        .attr("max", timeExtent[1])
-        .attr("step", (timeExtent[1] - timeExtent[0]) / 999) // timeExtent has range 999
-        .property("value", timeExtent[0])
         .on("input", function() {
-          currentTime = +this.value;
+          currentTime = +(this.value) / 100 * (timeExtent[1] - timeExtent[0]) + timeExtent[0];
           console.log('scrubber input', this.value);
           updatePlayback();
         });
