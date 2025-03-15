@@ -1287,13 +1287,6 @@ hideLoadingOverlay();
 
       // On track change
       trackSelector.on("change", function() {
-        if (playing) {
-          playing = false;
-          if (timer) {
-            clearTimeout(timer);
-            timer = null;
-          }
-        }
         
         // Enable lab toggle when a track is selected
         const labToggle = document.getElementById('labToggle');
@@ -1301,7 +1294,7 @@ hideLoadingOverlay();
           labToggle.disabled = false;
         }
         
-        updateChartWithDataAPI(this.value);
+        updateChartWithDataAPI(this.value, false);
       });
 
       // If we have at least one track, update the chart
@@ -1388,7 +1381,7 @@ function updateLabTable(labs) {
 // ----------------------------------------------------------
 // 4) UPDATE CHART USING DATA API
 // ----------------------------------------------------------
-function updateChartWithDataAPI(tid) {
+function updateChartWithDataAPI(tid, reset_time = true) {
   console.log("updateChartWithDataAPI called with tid:", tid);
   
   if (!tid || tid === 'undefined') {
@@ -1400,12 +1393,12 @@ function updateChartWithDataAPI(tid) {
   
   if (playing) {
     playing = false;
-    if (timer) {
+    if (timer && reset_time) {
       clearTimeout(timer);
       timer = null;
     }
   }
-  currentTime = 0;
+  
   anomalies = []; // Reset anomalies
 
   // Remove any existing chart
@@ -1471,8 +1464,7 @@ function updateChartWithDataAPI(tid) {
           // Check if data is valid - if not, fall back to default visualization
           if (!data || !Array.isArray(data) || data.length === 0) {
             console.warn("No data received for track, showing default visualization");
-    hideLoadingOverlay();
-            // showDefaultVisualization();
+            hideLoadingOverlay();
             showDefaultMessage("No data available for this track.");
             return;
           }
@@ -1482,6 +1474,11 @@ function updateChartWithDataAPI(tid) {
 
       // Compute domain with a bit of padding
       const timeExtent = d3.extent(data, d => d.time);
+
+      // Initialize current time
+      if(reset_time) {
+        currentTime = timeExtent[0];
+      }
           
           // If we have min/max values in our dataset, use them for more accurate visualization
           let valueMin, valueMax;
@@ -1577,8 +1574,8 @@ function updateChartWithDataAPI(tid) {
             .attr("class", "time-marker")
             .attr("y1", 0)
             .attr("y2", height)
-            .attr("x1", xScale(timeExtent[0]))
-            .attr("x2", xScale(timeExtent[0]))
+            .attr("x1", xScale(currentTime))
+            .attr("x2", xScale(currentTime))
             .attr("stroke", "rgba(0, 0, 0, 0.6)")
             .attr("stroke-width", 2)
             .attr("stroke-dasharray", "4,4");
@@ -1761,10 +1758,13 @@ function updateChartWithDataAPI(tid) {
         });
 
       // Update the scrubber slider range
+      if(reset_time) {
+        d3.select("#scrubber")
+          .property("value", 0);
+      }
       d3.select("#scrubber")
         .on("input", function() {
           currentTime = +(this.value) / 100 * (timeExtent[1] - timeExtent[0]) + timeExtent[0];
-          console.log('scrubber input', this.value);
           updatePlayback();
         });
         
@@ -1843,8 +1843,7 @@ function updateChartWithDataAPI(tid) {
       d3.selectAll(".mini-anomaly-marker").remove();
       drawOverview();
 
-          // Initialize current time
-          currentTime = timeExtent[0];
+        
       
       // Hide loading indicator
       // TODO check hideLoadingOverlay
