@@ -921,7 +921,10 @@ const chartArea = chartContainer.append("g")
     .attr("class", "legend")
     .attr("transform", `translate(${width - 150}, ${50})`);
   
-  selectedSignals.forEach((signal, i) => {
+  const maxLegend = 10;
+  const totalLegends = selectedSignals.length;
+
+  selectedSignals.slice(0, maxLegend).forEach((signal, i) => {
     const legendRow = legendGroup.append("g")
       .attr("transform", `translate(0, ${i * 20})`);
     
@@ -939,6 +942,52 @@ const chartArea = chartContainer.append("g")
       .text(signal.name.split("/").pop())
       .style("font-size", "10px");
   });
+
+  if (totalLegends > maxLegend) {
+    const extraRow = legendGroup.append("g")
+      .attr("transform", `translate(0, ${maxLegend * 20})`);
+    
+    extraRow.append("text")
+      .attr("x", 185)
+      .attr("y", 4)
+      .text(`... (${totalLegends - maxLegend} more)`)
+      .style("font-size", "10px")
+      .style("font-style", "italic")
+      .style("fill", "gray")
+      .style("text-decoration", "underline")
+      .style("cursor", "pointer")
+      .on("mouseover", function(event) {
+        // Build tooltip content with each remaining legend rendered similarly
+        const remainingSignals = selectedSignals.slice(maxLegend);
+        
+        // Create container for tooltip content
+        let tooltipContent = "";
+        
+        remainingSignals.forEach(signal => {
+          // For each remaining signal, build an inline SVG snippet and a text span.
+          tooltipContent += `
+            <div style="display: flex; align-items: center; margin-bottom: 2px;">
+              <svg width="20" height="10" style="flex-shrink: 0;">
+                <line x1="0" y1="5" x2="20" y2="5" stroke="${signal.color}" stroke-width="2"></line>
+              </svg>
+              <span style="font-size: 10px; margin-left: 5px;">${signal.name.split("/").pop()}</span>
+            </div>
+          `;
+        });
+        
+        // Append the tooltip div with the content and apply the same tooltip class as in crisisAnalysis.js
+        d3.select("body").append("div")
+          .attr("class", "tooltip legend-tooltip")
+          .html(tooltipContent)
+          .style("position", "absolute")
+          .style("left", (event.pageX + 10) + "px")
+          .style("top", (event.pageY - 28) + "px")
+          .style("opacity", 0.9);
+      })
+      .on("mouseout", function() {
+        d3.selectAll(".legend-tooltip").remove();
+      });
+  }
   
   // Add simulation to legend if present
   if (simulatedData.length > 0) {
@@ -1713,11 +1762,3 @@ function showLoadingOverlay(message = 'Loading...') {
     overlay.classList.add('visible');
   }
 }
-
-
-// document.addEventListener("DOMContentLoaded", () => {
-//   // Wait a little for biosignalToggles to render (if necessary)
-//   setTimeout(() => {
-    
-//   }, 400); // Adjust delay as needed
-// });
