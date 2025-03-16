@@ -1,13 +1,11 @@
 // applyURL.js
 document.addEventListener('DOMContentLoaded', async function() {
-    // 从 URL 中提取参数
     const urlParams = new URLSearchParams(window.location.search);
     const urlCaseId = urlParams.get('caseId');
     const urlOperationType = urlParams.get('operationType');
     const urlComplexity = urlParams.get('complexity');
     const urlTrackId = urlParams.get('trackId');
   
-    // 如果所有参数都为空则直接跳过
     if (!urlCaseId || !urlOperationType || !urlComplexity || !urlTrackId) {
       return;
     }

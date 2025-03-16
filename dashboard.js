@@ -88,6 +88,10 @@ document.getElementById("caseSelector").addEventListener("change", function () {
   if (caseId) {
     updateAnomaliesList(caseId); // New function to update anomalies sidebar
   }
+  if (this.value === "") {
+    const trackSelector = document.getElementById("trackSelector");
+    trackSelector.innerHTML = "";
+  }
 });
 
 // ----------------------------------------------------------
@@ -226,7 +230,7 @@ function timeToSeconds(timeStr) {
 // Update current time display when playback updates
 function updateTimeDisplay(time, value) {
   document.getElementById("current-time-display").textContent =
-    formatTime(time);
+    time ? formatTime(time) : "00:00:00";
   document.getElementById("current-value-display").textContent = value
     ? value.toFixed(2)
     : "--";
@@ -282,13 +286,7 @@ function stepPlayback() {
   if (window.mainXScale) {
     const domain = window.mainXScale.domain();
     if (currentTime > domain[1]) {
-      // Loop back to beginning if at the end
-      currentTime = domain[0];
-      // Clear existing anomalies when looping
-      d3.selectAll(".anomaly-marker").remove();
-      d3.selectAll(".mini-anomaly-marker").remove();
-      window.anomalies = [];
-      updateAnomaliesList([], d3.select("#caseSelector").property("value"));
+      fastForwardPlayback();
     }
   }
 
@@ -303,6 +301,13 @@ function stepPlayback() {
 }
 
 function fastForwardPlayback() {
+  if (window.mainXScale) {
+    const domain = window.mainXScale.domain();
+    if (currentTime < domain[0]) {
+      currentTime = domain[0];
+    }
+  }
+
   if (playing) {
     // If already playing, stop
     playing = false;
@@ -537,16 +542,18 @@ function checkForAnomalies() {
         tooltip
           .html(
             `
-          <strong>${anomaly.type.toUpperCase()}</strong><br/>
-          Time: ${formatTime(anomaly.time)}<br/>
-          Value: ${anomaly.value.toFixed(1)}<br/>
-          Severity: ${anomaly.severity}<br/>
-          ${
-            anomaly.zScore
-              ? `Z-Score: ${anomaly.zScore.toFixed(1)}`
-              : `Change: ${(anomaly.trendChange * 100).toFixed(1)}%`
-          }
-        `
+            <div class="tooltip-content">
+              <div class="tooltip-header">${anomaly.type.toUpperCase()}</div>
+              <div class="tooltip-text">Time: ${formatTime(anomaly.time)}</div>
+              <div class="tooltip-text">Value: ${anomaly.value.toFixed(1)}</div>
+              <div class="tooltip-text">Severity: ${anomaly.severity}</div>
+              <div class="tooltip-text">${
+                anomaly.zScore
+                  ? `Z-Score: ${anomaly.zScore.toFixed(1)}`
+                  : `Change: ${(anomaly.trendChange * 100).toFixed(1)}%`
+              }</div>
+            </div>
+            `
           )
           .style("left", event.pageX + 10 + "px")
           .style("top", event.pageY - 28 + "px");
@@ -666,7 +673,25 @@ document.addEventListener("DOMContentLoaded", function () {
   document.getElementById("rewind").addEventListener("click", rewindPlayback);
   document
     .getElementById("fastForward")
-    .addEventListener("click", fastForwardPlayback);
+    .addEventListener("click", function() {
+      const svg = d3.select("#chart").select("svg");
+      const defaultText = svg.select("text").text().trim();
+      if (defaultText.startsWith("Please choose a")) {
+        return
+      }
+      if (window.mainXScale) {
+        const domain = window.mainXScale.domain();
+        if (currentTime > domain[1]) {
+          d3.select("#scrubber").property("value", 0);
+          currentTime = domain[0];
+          d3.selectAll(".anomaly-marker").remove();
+          d3.selectAll(".mini-anomaly-marker").remove();
+          window.anomalies = [];
+          updateAnomaliesList([], d3.select("#caseSelector").property("value"));
+        }
+      }
+      fastForwardPlayback();
+    })
 
   // Initialize speed control
   document.getElementById("speed").addEventListener("change", function () {
@@ -1512,12 +1537,12 @@ function updateChartWithDataAPI(tid, reset_time = true) {
               tooltip
                 .html(
                   `
-                <div class="tooltip-content">
-                  <div class="tooltip-header">${d.type}</div>
-                  <div class="tooltip-text">${d.label}</div>
-                  <div class="tooltip-text">Time: ${d.time.toFixed(1)}s</div>
-                </div>
-          `
+                  <div class="tooltip-content">
+                    <div class="tooltip-header">${d.type}</div>
+                    <div class="tooltip-text">${d.label}</div>
+                    <div class="tooltip-text">Time: ${d.time.toFixed(1)}s</div>
+                  </div>
+                  `
                 )
                 .style("left", event.pageX + 10 + "px")
                 .style("top", event.pageY - 28 + "px");
@@ -1898,18 +1923,18 @@ function updateChartElements() {
         tooltip
           .html(
             `
-          <div class="tooltip-content">
-            <strong>${d.type}</strong><br/>
-            Time: ${formatTime(d.time)}<br/>
-            Value: ${d.value.toFixed(1)}<br/>
-            Severity: ${d.severity}<br/>
-            ${
-              d.zScore
-                ? `Z-Score: ${d.zScore.toFixed(1)}`
-                : `Change: ${(d.trendChange * 100).toFixed(1)}%`
-            }
-          </div>
-        `
+            <div class="tooltip-content">
+              <div class="tooltip-header">${d.type}</div>
+              <div class="tooltip-text">Time: ${formatTime(d.time)}</div>
+              <div class="tooltip-text">Value: ${d.value.toFixed(1)}</div>
+              <div class="tooltip-text">Severity: ${d.severity}</div>
+              <div class="tooltip-text">${
+                d.zScore
+                  ? `Z-Score: ${d.zScore.toFixed(1)}`
+                  : `Change: ${(d.trendChange * 100).toFixed(1)}%`
+              }</div>
+            </div>
+            `
           )
           .style("left", event.pageX + 10 + "px")
           .style("top", event.pageY - 28 + "px");
@@ -2491,7 +2516,6 @@ function onCaseSelectChange(event) {
 
   // If no case is selected, show default visualization
   if (!caseId) {
-    // showDefaultVisualization();
     return;
   }
 
@@ -2722,6 +2746,79 @@ function removeAnomalyHighlight() {
     item.classList.remove("highlighted");
   });
 }
+
+document.addEventListener("DOMContentLoaded", function () {
+  setTimeout(() => {
+    const complexityEl = document.getElementById("complexityLevel");
+    if (complexityEl) {
+      const observer1 = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.attributeName === "disabled" && complexityEl.disabled) {
+            trackSelector.innerHTML = "";
+            showDefaultMessage("Please choose an operation type.");
+          }
+        });
+      });
+      observer1.observe(complexityEl, { attributes: true });
+    }
+
+    const caseSelector = document.getElementById("caseSelector");
+    if (caseSelector && complexityEl) {
+      const observer2 = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (
+            mutation.attributeName === "disabled" &&
+            caseSelector.disabled &&
+            !complexityEl.disabled
+          ) {
+            trackSelector.innerHTML = "";
+            showDefaultMessage("Please choose a complexity level.");
+          }
+        });
+      });
+      observer2.observe(caseSelector, { attributes: true });
+    }
+
+    if (caseSelector) {
+      const observer3 = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (mutation.attributeName === "disabled" && !caseSelector.disabled) {
+            showDefaultMessage("Please choose a case to visualize.");
+          }
+        });
+      });
+      observer3.observe(caseSelector, { attributes: true, attributeFilter: ["disabled"] });
+    }
+
+    const trackSelector = document.getElementById("trackSelector");
+    if (trackSelector && caseSelector) {
+      const observer4 = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (trackSelector.innerHTML.trim() === "" && !caseSelector.disabled) {
+            showDefaultMessage("Please choose a case to visualize.");
+          }
+        });
+      });
+      observer4.observe(trackSelector, { childList: true, subtree: true });
+    }
+
+    if (trackSelector) {
+      const observer5 = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+          if (trackSelector.innerHTML.trim() === "") {
+            d3.select("#data-overview svg g")
+            .selectAll("*:not(.overview-title)")
+            .remove();
+            rewindPlayback();
+            updateTimeDisplay(null, null);
+          }
+        });
+      });
+      observer5.observe(trackSelector, { childList: true, subtree: true });
+    }
+  }, 1000);
+});
+
 
 // Add this CSS to your stylesheet
 const style = document.createElement("style");
