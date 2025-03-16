@@ -245,10 +245,9 @@ document.addEventListener("DOMContentLoaded", () => {
     
     // Set up the clear brush button
     d3.select("#clearBrush").on("click", () => {
-      brushG.call(brush.move, null);
-      if (typeof setMainChartDomain === 'function') {
-        setMainChartDomain(timeExtent);
-      }
+      // brushG.call(brush.move, null);
+      drawOverview();
+      rewindPlayback();
     });
 
     // Track the last update time to throttle updates during rapid brush movement

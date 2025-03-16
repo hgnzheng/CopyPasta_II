@@ -1760,6 +1760,7 @@ function computeMovingAverages(data) {
 
 // Helper function to set main chart domain (for brushing from overview)
 function setMainChartDomain(newDomain) {
+  const oldDomain = window.mainXScale.domain()
   if (!window.mainXScale) return;
 
   // Update the global scale references
@@ -1794,6 +1795,9 @@ function setMainChartDomain(newDomain) {
 
   // Store the current domain for reference immediately
   currentXDomain = newDomain;
+
+  currentTime = currentTime + (window.mainXScale.domain()[0] - oldDomain[0]) 
+          / (oldDomain[1] - oldDomain[0]) * (window.mainXScale.domain()[1] - window.mainXScale.domain()[0]);
 }
 
 // Update chart elements after scale changes
