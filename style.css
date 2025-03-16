@@ -1468,3 +1468,12 @@ header.crisis-header button:hover {
     transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
+.has-text-link a{
+    color: skyblue; /* Use accent color for links */
+    text-decoration: none; /* Remove underline */
+    font-style: italic;
+}
+
+.has-text-link a:hover {
+    text-decoration: underline; /* Add underline on hover */
+}

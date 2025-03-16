@@ -54,7 +54,7 @@ console.log(colors);
 document.addEventListener("DOMContentLoaded", () => {
   // Back to Dashboard button
   document.getElementById("backButton").addEventListener("click", function () {
-    // 从当前 URL 提取所有参数
+    // get all param form curr URL
     const urlParams = new URLSearchParams(window.location.search);
     const caseId = urlParams.get("caseId") || 1;
     const centerTime = urlParams.get("centerTime") || 0;
@@ -62,7 +62,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const complexity = urlParams.get("complexity") || "";
     const trackId = urlParams.get("trackId") || "fd869e25ba82a66cc95b38ed47110bf4f14bb368";
     
-    // 构造新的 URL，将所有参数传递出去
     window.location.href = `index.html?caseId=${caseId}&time=${centerTime}&operationType=${operationType}&complexity=${complexity}&trackId=${trackId}#dashboard-view`;
   });
 
@@ -150,7 +149,7 @@ document.addEventListener("DOMContentLoaded", () => {
       selectedSignals = biosignalsForCase.filter(s => s.checked);
       createBiosignalCheckboxes(biosignalsForCase, startTime, endTime, centerTime);
       document.getElementById("biosignal-title").innerHTML =
-        `Biosignals (<span style="color: gray;">${targetPrefix}</span>)`;
+        `Biosignals (Device: <span style="color: gray;">${targetPrefix}</span>)`;
     })
     .catch((error) => {
       console.error("Error fetching track list:", error);
@@ -621,7 +620,7 @@ const chartArea = chartContainer.append("g")
         return;
       }
       
-      const clipId = "clip-signal-" + signal.tid;
+    const clipId = "clip-signal-" + signal.tid;
     let defs = detailedChartSvg.select("defs");
     if (defs.empty()) {
       defs = detailedChartSvg.append("defs");
