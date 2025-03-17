@@ -1504,7 +1504,7 @@ function updateChartWithDataAPI(tid, reset_time = true) {
           });
 
           // Add annotation markers
-          const annotationGroup = svg.append("g").attr("class", "annotations");
+          const annotationGroup = svg.append("g").attr("class", "annotations").attr("clip-path", "url(#clip)");;
 
           currentAnnotationGroup = annotationGroup;
 
