@@ -572,15 +572,11 @@ function checkForAnomalies() {
           )
           .attr("stroke-width", 3);
 
-        // Highlight corresponding item in anomalies list
         highlightAnomalyInList(anomaly.time);
       });
 
       marker.on("mouseout", function () {
-        // Hide tooltip
         tooltip.transition().duration(500).style("opacity", 0);
-
-        // Restore marker
         d3.select(this)
           .transition()
           .duration(200)
@@ -2735,6 +2731,8 @@ function unhighlightAnomalyMarker() {
 
 // Helper function to highlight anomaly in list
 function highlightAnomalyInList(time) {
+  if (playing) return;
+
   const items = document.querySelectorAll(".anomaly-item");
   items.forEach((item) => {
     if (parseFloat(item.dataset.time) === time) {
@@ -2750,6 +2748,70 @@ function removeAnomalyHighlight() {
     item.classList.remove("highlighted");
   });
 }
+
+function initializeHoverOverlay(svg) {
+  const chartContainer = document.getElementById("chart");
+  const { width, height } = chartContainer.getBoundingClientRect();
+
+  const adjustedWidth = width - margin.left - margin.right;
+  const adjustedHeight = height - margin.top - margin.bottom;
+
+  // 如果 hover overlay 不存在，则创建
+  let overlay = svg.select(".hover-overlay");
+  if (overlay.empty()) {
+    overlay = svg.append("rect")
+      .attr("class", "hover-overlay")
+      .attr("width", adjustedWidth)
+      .attr("height", adjustedHeight)
+      .style("fill", "none")
+      .style("pointer-events", "all")
+      .on("mousemove", function(event) {
+        const [mouseX] = d3.pointer(event);
+        const hoveredTime = currentXScale.invert(mouseX);
+
+        if (window.currentTrackData) {
+          const bisect = d3.bisector(d => d.time).left;
+          const index = bisect(window.currentTrackData, hoveredTime);
+          let dClosest = window.currentTrackData[index];
+          if (index > 0) {
+            const dPrev = window.currentTrackData[index - 1];
+            dClosest = (hoveredTime - dPrev.time) < (dClosest.time - hoveredTime) ? dPrev : dClosest;
+          }
+          svg.select(".hover-line")
+            .attr("x1", mouseX)
+            .attr("x2", mouseX)
+            .style("opacity", 1);
+
+          tooltip.style("left", (event.pageX + 10) + "px")
+            .style("top", (event.pageY - 28) + "px")
+            .html(`
+              <div class="tooltip-content">
+                <div class="tooltip-header">Time: <div class="tooltip-text">${formatTime(dClosest.time)}</div></div>
+                <div class="tooltip-text">Value: ${dClosest.value.toFixed(1)}</div>
+              </div>
+            `)
+            .style("opacity", 0.9);
+        }
+      })
+      .on("mouseout", function() {
+        tooltip.style("opacity", 0);
+        svg.select(".hover-line").style("opacity", 0);
+      });
+  }
+
+  let hoverLine = svg.select(".hover-line");
+  if (hoverLine.empty()) {
+    svg.append("line")
+      .attr("class", "hover-line")
+      .attr("y1", 0)
+      .attr("y2", adjustedHeight)
+      .attr("stroke", "rgba(0, 0, 0, 0.6)")
+      .attr("stroke-width", 1)
+      .attr("stroke-dasharray", "3,3");
+  }
+}
+
+
 
 document.addEventListener("DOMContentLoaded", function () {
   setTimeout(() => {
