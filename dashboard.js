@@ -1059,6 +1059,8 @@ function updateCaseWithDataAPI(caseId) {
 
       // On track change
       trackSelector.on("change", function () {
+        rewindPlayback();
+        
         // Enable lab toggle when a track is selected
         const labToggle = document.getElementById("labToggle");
         if (labToggle) {
