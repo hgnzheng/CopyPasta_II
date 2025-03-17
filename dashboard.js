@@ -519,6 +519,7 @@ function checkForAnomalies() {
       const marker = svg
         .append("circle")
         .attr("class", "anomaly-marker")
+        .datum(anomaly)
         .attr("cx", currentXScale(anomaly.time))
         .attr("cy", currentYScale(anomaly.value))
         .attr(
