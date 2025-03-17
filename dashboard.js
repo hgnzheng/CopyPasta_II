@@ -1701,6 +1701,8 @@ function updateChartWithDataAPI(tid, reset_time = true) {
     // showDefaultVisualization();
     showDefaultMessage("The chart could not be loaded.");
   }
+
+  initializeHoverOverlay(d3.select("#chart").select("svg g"));
 }
 
 // Helper function to compute moving averages efficiently
