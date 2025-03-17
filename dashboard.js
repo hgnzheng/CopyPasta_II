@@ -81,6 +81,7 @@ document.getElementById("labToggle").addEventListener("change", function () {
 
 // Add event listener for case selector
 document.getElementById("caseSelector").addEventListener("change", function () {
+  rewindPlayback();
   const caseId = this.value;
   console.log("Case selector change event triggered with caseId:", caseId);
 
@@ -1060,7 +1061,7 @@ function updateCaseWithDataAPI(caseId) {
       // On track change
       trackSelector.on("change", function () {
         rewindPlayback();
-        
+
         // Enable lab toggle when a track is selected
         const labToggle = document.getElementById("labToggle");
         if (labToggle) {
@@ -2257,6 +2258,7 @@ async function loadCaseHierarchy() {
     // Add event listeners
     // categorySelect.addEventListener('change', updateComplexityOptions);
     categorySelect.addEventListener("change", function () {
+      rewindPlayback();
       console.log("Category selected:", this.value);
       updateComplexityOptions();
       showDefaultMessage("Please choose a complexity level.");
@@ -2264,6 +2266,7 @@ async function loadCaseHierarchy() {
     document
       .getElementById("complexityLevel")
       .addEventListener("change", function () {
+        rewindPlayback();
         console.log("Complexity selected:", this.value);
         updateCaseOptions();
         showDefaultMessage("Please choose a case to visualize.");
