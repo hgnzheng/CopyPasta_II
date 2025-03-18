@@ -301,7 +301,7 @@ function stepPlayback() {
 
   // Check for anomalies at current time point
   anomalyUpdateCounter++;
-  if (anomalyUpdateCounter % 4 === 0) {
+  if (anomalyUpdateCounter % 5 === 0) {
     checkForAnomalies();
   }
   // Always use fast forward timing (50ms)
@@ -1599,9 +1599,8 @@ function updateChartWithDataAPI(tid, reset_time = true) {
             d3.select("#scrubber").property("value", 0);
           }
           d3.select("#scrubber").on("input", function () {
-            currentTime =
-              (+this.value / 100) * (timeExtent[1] - timeExtent[0]) +
-              timeExtent[0];
+            const domain = window.mainXScale.domain(); // 获取最新的时间范围
+            currentTime = (+this.value / 100) * (domain[1] - domain[0]) + domain[0];
             updatePlayback();
           });
 
@@ -1814,8 +1813,6 @@ function setMainChartDomain(newDomain) {
 
   currentTime = currentTime + (window.mainXScale.domain()[0] - oldDomain[0]) 
           / (oldDomain[1] - oldDomain[0]) * (window.mainXScale.domain()[1] - window.mainXScale.domain()[0]);
-
-  playbackSpeed = normalPlaybackSpeed / (oldDomain[1] - oldDomain[0]) * (window.mainXScale.domain()[1] - window.mainXScale.domain()[0]);
 
 }
 
