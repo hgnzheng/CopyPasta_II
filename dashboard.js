@@ -2750,12 +2750,29 @@ function waitUntilCentered(item, callback) {
   requestAnimationFrame(check);
 }
 
+function anomalyMouseOverHandler(event) {
+  const anomaly = event.currentTarget.__anomalyData;
+  highlightAnomalyMarker(anomaly.time);
+  event.currentTarget.style.borderColor = anomaly.baseColor;
+}
+
+function anomalyMouseOutHandler(event) {
+  unhighlightAnomalyMarker();
+  event.currentTarget.style.borderColor = "";
+}
+
 function highlightAnomalyInList(time) {
   if (playing) return;
   const items = document.querySelectorAll(".anomaly-item");
+  
+  // 禁用所有项的 mouseover 和 mouseout 事件监听器
+  items.forEach(item => {
+    item.removeEventListener("mouseover", anomalyMouseOverHandler);
+    item.removeEventListener("mouseout", anomalyMouseOutHandler);
+  });
+  
   items.forEach((item) => {
     if (parseFloat(item.dataset.time) === time) {
-      item.classList.add("disable-hover");
       if (item._removeTimeout) {
         clearTimeout(item._removeTimeout);
         delete item._removeTimeout;
@@ -2767,7 +2784,10 @@ function highlightAnomalyInList(time) {
           item.classList.add("highlighted");
           item._removeTimeout = setTimeout(() => {
             item.classList.remove("highlighted");
-            item.classList.remove("disable-hover");
+            items.forEach(item => {
+              item.addEventListener("mouseover", anomalyMouseOverHandler);
+              item.addEventListener("mouseout", anomalyMouseOutHandler);
+            });
             delete item._removeTimeout;
           }, 300);
         });
