@@ -36,7 +36,9 @@ let playing = false;
 let playbackSpeed = 1;
 let timer = null;
 let fastForwardMode = true; // Always in fast forward mode
-let normalPlaybackSpeed = 1; // Store normal speed for restoration
+let normalPlaybackSpeed = 5; // Store normal speed for restoration
+
+window.playing = playing;
 
 // References to current chart elements
 let currentXScale,
@@ -45,6 +47,9 @@ let currentXScale,
   currentAnnotationGroup,
   currentXDomain,
   currentTransitionDuration = 300; // animation duration in ms
+
+let anomalyUpdateCounter = 0;
+
 
 // Global data from CSV
 let casesData, labsData, trksData;
@@ -87,7 +92,7 @@ document.getElementById("caseSelector").addEventListener("change", function () {
 
   updateCaseWithDataAPI(caseId);
   if (caseId) {
-    updateAnomaliesList(caseId); // New function to update anomalies sidebar
+    updateAnomaliesList([], caseId); // New function to update anomalies sidebar
   }
   if (this.value === "") {
     const trackSelector = document.getElementById("trackSelector");
@@ -200,8 +205,8 @@ function updateAnomaliesList(anomalies, caseId) {
       const trackId = document.getElementById("trackSelector").value;
       window.location.href = `crisisAnalysis.html?caseId=${caseId}&centerTime=${
         anomaly.time
-      }&start=${anomaly.time - 30}&end=${
-        anomaly.time + 30
+      }&start=${anomaly.time - 100}&end=${
+        anomaly.time + 100
       }&operationType=${operationType}&complexity=${complexity}&trackId=${trackId}`;
     });
 
@@ -295,8 +300,10 @@ function stepPlayback() {
   updatePlayback();
 
   // Check for anomalies at current time point
-  checkForAnomalies();
-
+  anomalyUpdateCounter++;
+  if (anomalyUpdateCounter % 4 === 0) {
+    checkForAnomalies();
+  }
   // Always use fast forward timing (50ms)
   timer = setTimeout(stepPlayback, 50);
 }
@@ -312,6 +319,7 @@ function fastForwardPlayback() {
   if (playing) {
     // If already playing, stop
     playing = false;
+    window.playing = playing;
 
     // Update button visual to indicate stopped state
     document.getElementById("fastForward").classList.remove("active-ff");
@@ -325,6 +333,7 @@ function fastForwardPlayback() {
   } else {
     // Start playback in fast forward mode
     playing = true;
+    window.playing = playing;
     playbackSpeed = normalPlaybackSpeed * 5; // 5x faster
 
     // Update button visual to indicate playing state
@@ -340,6 +349,7 @@ function rewindPlayback() {
   if (playing) {
     // Stop playback
     playing = false;
+    window.playing = playing;
     if (timer) {
       clearTimeout(timer);
       timer = null;
@@ -604,8 +614,8 @@ function checkForAnomalies() {
         const trackId = document.getElementById("trackSelector").value;
         window.location.href = `crisisAnalysis.html?caseId=${caseId}&centerTime=${
           anomaly.time
-        }&start=${anomaly.time - 30}&end=${
-          anomaly.time + 30
+        }&start=${anomaly.time - 100}&end=${
+          anomaly.time + 100
         }&operationType=${operationType}&complexity=${complexity}&trackId=${trackId}`;
       });
 
@@ -988,6 +998,7 @@ function updateCaseWithDataAPI(caseId) {
 
   if (playing) {
     playing = false;
+    window.playing = playing;
     if (timer) {
       clearTimeout(timer);
       timer = null;
@@ -1171,6 +1182,7 @@ function updateChartWithDataAPI(tid, reset_time = true) {
 
   if (playing) {
     playing = false;
+    window.playing = playing;
     if (timer && reset_time) {
       clearTimeout(timer);
       timer = null;
@@ -1337,12 +1349,12 @@ function updateChartWithDataAPI(tid, reset_time = true) {
               .y1((d) => yScale(d.maxValue))
               .curve(d3.curveCatmullRom.alpha(0.5));
 
-            chartG
-              .append("path")
-              .datum(data)
-              .attr("class", "range-area")
-              .attr("fill", "rgba(66, 133, 244, 0.2)")
-              .attr("d", area);
+            // chartG
+            //   .append("path")
+            //   .datum(data)
+            //   .attr("class", "range-area")
+            //   .attr("fill", "rgba(66, 133, 244, 0.2)")
+            //   .attr("d", area);
 
             // Add the main line (mean values)
             chartG
@@ -1426,24 +1438,25 @@ function updateChartWithDataAPI(tid, reset_time = true) {
               .y((d) => yScale(d.ma1min))
               .defined((d) => !isNaN(d.ma1min))
               .curve(d3.curveMonotoneX);
-
+          
             const ma1Path = chartG
               .append("path")
               .datum(data.filter((d) => d.ma1min !== undefined))
               .attr("class", "ma1min-line")
               .attr("fill", "none")
               .attr("stroke", colors.movingAvg1)
-              .attr("stroke-width", 1.5)
-              .attr("stroke-dasharray", "5,5")
+              .attr("stroke-width", 3)  // Increased stroke width
+              .attr("stroke-dasharray", "2,2")  // Subtler dash pattern
               .attr("d", ma1Line);
-
-            // Store reference
+          
             window.ma1Path = ma1Path;
-            // Initially hide
-            ma1Path.style("display", "none");
+          
+            // Set display based on dropdown selection (if needed)
+            const maSelection = document.getElementById("MAdropdownMenu").value;
+            ma1Path.style("display", (maSelection === "1min" || maSelection === "both") ? "block" : "none");
           }
-
-          // Add 5-minute moving average line if we have computed values
+          
+          // For 5-minute moving average:
           if (data.some((d) => d.ma5min !== undefined)) {
             const ma5Line = d3
               .line()
@@ -1451,21 +1464,21 @@ function updateChartWithDataAPI(tid, reset_time = true) {
               .y((d) => yScale(d.ma5min))
               .defined((d) => !isNaN(d.ma5min))
               .curve(d3.curveMonotoneX);
-
+          
             const ma5Path = chartG
               .append("path")
               .datum(data.filter((d) => d.ma5min !== undefined))
               .attr("class", "ma5min-line")
               .attr("fill", "none")
               .attr("stroke", colors.movingAvg5)
-              .attr("stroke-width", 1.5)
-              .attr("stroke-dasharray", "1,3")
+              .attr("stroke-width", 3)  // Increased stroke width
+              .attr("stroke-dasharray", "2,2")  // Subtle dash
               .attr("d", ma5Line);
-
-            // Store reference
+          
             window.ma5Path = ma5Path;
-            // Initially hide
-            ma5Path.style("display", "none");
+          
+            const maSelection = document.getElementById("MAdropdownMenu").value;
+            ma5Path.style("display", (maSelection === "5min" || maSelection === "both") ? "block" : "none");
           }
 
           // Add event handler for the moving average dropdown if not already added
@@ -1566,6 +1579,7 @@ function updateChartWithDataAPI(tid, reset_time = true) {
                 .attr("stroke-width", 1);
             })
             .on("click", function (event, d) {
+              rewindPlayback();
               // Navigate to detailed view on click
               const caseId = d3.select("#caseSelector").property("value");
               const operationType =
@@ -1575,8 +1589,8 @@ function updateChartWithDataAPI(tid, reset_time = true) {
               const trackId = document.getElementById("trackSelector").value;
               window.location.href = `crisisAnalysis.html?caseId=${caseId}&centerTime=${
                 d.time
-              }&start=${d.time - 30}&end=${
-                d.time + 30
+              }&start=${d.time - 100}&end=${
+                d.time + 100
               }&operationType=${operationType}&complexity=${complexity}&trackId=${trackId}`;
             });
 
@@ -1800,6 +1814,9 @@ function setMainChartDomain(newDomain) {
 
   currentTime = currentTime + (window.mainXScale.domain()[0] - oldDomain[0]) 
           / (oldDomain[1] - oldDomain[0]) * (window.mainXScale.domain()[1] - window.mainXScale.domain()[0]);
+
+  playbackSpeed = normalPlaybackSpeed / (oldDomain[1] - oldDomain[0]) * (window.mainXScale.domain()[1] - window.mainXScale.domain()[0]);
+
 }
 
 // Update chart elements after scale changes
@@ -1822,21 +1839,6 @@ function updateChartElements() {
     (d) => d.time >= domainStart - buffer && d.time <= domainEnd + buffer
   );
 
-  // Check if we're dealing with a large dataset with range area
-  const hasRangeArea = d3.select(".range-area").size() > 0;
-
-  // Update range area if it exists
-  if (hasRangeArea) {
-    // Create area generator optimized for visible data
-    const area = d3
-      .area()
-      .x((d) => currentXScale(d.time))
-      .y0((d) => currentYScale(d.minValue))
-      .y1((d) => currentYScale(d.maxValue))
-      .curve(d3.curveMonotoneX);
-
-    d3.select(".range-area").datum(visibleData).attr("d", area);
-  }
 
   // Create optimized line generator
   const line = d3
@@ -1983,8 +1985,8 @@ function updateChartElements() {
         const trackId = document.getElementById("trackSelector").value;
         window.location.href = `crisisAnalysis.html?caseId=${caseId}&centerTime=${
           d.time
-        }&start=${d.time - 30}&end=${
-          d.time + 30
+        }&start=${d.time - 100}&end=${
+          d.time + 100
         }&operationType=${operationType}&complexity=${complexity}&trackId=${trackId}`;
       });
 
@@ -2745,7 +2747,7 @@ function highlightAnomalyInList(time) {
   items.forEach((item) => {
     if (parseFloat(item.dataset.time) === time) {
       item.classList.add("highlighted");
-      item.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      // item.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
   });
 }

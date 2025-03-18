@@ -76,13 +76,13 @@ document.addEventListener("DOMContentLoaded", () => {
   let centerTime = parseFloat(urlParams.get("centerTime"));
 
   if (isNaN(centerTime)) {
-    centerTime = 30;
+    centerTime = 100;
   }
   else if (isNaN(startTime) || isNaN(endTime)) {
     // If any of the times are invalid, set defaults
     console.warn("Invalid time parameters in URL, using defaults");
-    startTime = centerTime - 30;
-    endTime = centerTime + 30;
+    startTime = centerTime - 100;
+    endTime = centerTime + 100;
   } else {
     if (startTime < 0) {
       startTime = startTime - startTime;
@@ -303,7 +303,7 @@ function fetchSignalData(tid, startT, endT) {
   // Check if we have the data API available
   if (window.dataAPI) {
     // Use our local data API
-    return window.dataAPI.getSignalData(tid, startT, endT)
+    return window.dataAPI.getSignalData(tid, startT, endT, filter_time=true)
       .then(data => {
         // If we got no data or very little data, generate demo data instead
         if (!data || data.length < 5) {
@@ -824,8 +824,6 @@ const chartArea = chartContainer.append("g")
           .attr("stroke", "#eee")
           .attr("stroke-dasharray", "3,3"));
       
-      // chartArea.selectAll(".simulation-line")
-      //   .attr("stroke-dasharray", (5 / t.k) + ", " + (5 / t.k));
     });
 
     if (preservedTransform) {
@@ -995,16 +993,16 @@ const chartArea = chartContainer.append("g")
       .attr("transform", `translate(0, ${selectedSignals.length * 20})`);
     
     simRow.append("line")
-      .attr("x1", 0)
+      .attr("x1", 160)
       .attr("y1", 0)
-      .attr("x2", 20)
+      .attr("x2", 180)
       .attr("y2", 0)
       .attr("stroke", colors.simulation)
       .attr("stroke-width", 2)
       .attr("stroke-dasharray", "5,5");
     
     simRow.append("text")
-      .attr("x", 25)
+      .attr("x", 185)
       .attr("y", 4)
       .text("Simulation")
       .style("font-size", "10px");
@@ -1033,6 +1031,7 @@ const chartArea = chartContainer.append("g")
     d3.select(".crisis-right-panel").select(".simulation-only-hint")
       .style("display", "block");
     chartArea.selectAll(".simulation-line").remove();
+    simulatedData = [];
   } else {
     d3.select(".crisis-right-panel").selectAll(":not(.simulation-only-hint)")
       .style("display", null);

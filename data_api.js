@@ -300,7 +300,7 @@ function getLabsForCase(caseId) {
 }
 
 // Get signal data with time range restriction
-function getSignalData(trackId, startTime, endTime) {
+function getSignalData(trackId, startTime, endTime, filter_time=false) {
   // Create cache key based on parameters
   const cacheKey = `${trackId}_${startTime}_${endTime}`;
   
@@ -338,94 +338,64 @@ function getSignalData(trackId, startTime, endTime) {
   // Show loading indicator
   showLoadingIndicator(true);
 
-  // Generate simulated data since we don't have a real data source
-  const simulateDataPromise = new Promise((resolve) => {
-    setTimeout(() => {
-      try {
-        // Generate 1000 data points in the time range
-        const data = [];
-        const range = endTime - startTime;
-        const numPoints = 1000;
-        const step = range / numPoints;
-        
-        // Base value and variation
-        const baseValue = 70 + Math.random() * 30; // Random base between 70-100
-        const variability = 10 + Math.random() * 20; // Random variation 10-30
-        
-        // Generate data with natural looking variations
-        let currentValue = baseValue;
-        let trend = 0;
-        for (let i = 0; i < numPoints; i++) {
-          const time = startTime + i * step;
-          
-          // Add some random walk with momentum
-          trend = trend * 0.95 + (Math.random() - 0.5) * 0.8;
-          currentValue += trend;
-          
-          // Add some sine wave patterns
-          const sineWave = Math.sin(time / 50) * (variability * 0.3);
-          const fastSineWave = Math.sin(time / 10) * (variability * 0.1);
-          
-          // Keep within reasonable bounds
-          let value = currentValue + sineWave + fastSineWave;
-          value = Math.max(baseValue - variability, Math.min(baseValue + variability, value));
-          
-          // Add data point
-          data.push({
-            time: time,
-            value: value,
-            // Add min/max values for range visualization
-            minValue: value - (Math.random() * 2 + 1),
-            maxValue: value + (Math.random() * 2 + 1)
-          });
-        }
-        
-        // Add some anomalies - sudden spikes or drops
-        const numAnomalies = Math.floor(Math.random() * 5) + 1;
-        for (let i = 0; i < numAnomalies; i++) {
-          const anomalyIndex = Math.floor(Math.random() * (numPoints - 10)) + 5;
-          const anomalyDirection = Math.random() > 0.5 ? 1 : -1;
-          const anomalySize = (Math.random() * 15 + 10) * anomalyDirection;
-          
-          // Create a spike or drop over a few points
-          for (let j = 0; j < 5; j++) {
-            const effectSize = anomalySize * Math.sin((j / 4) * Math.PI);
-            data[anomalyIndex + j].value += effectSize;
-            data[anomalyIndex + j].minValue += effectSize - 1;
-            data[anomalyIndex + j].maxValue += effectSize + 1;
-          }
-        }
-        
-        const processedData = data;
-        
-        // Store both downsampled and full resolution data
-        const downsampledData = downsampleData(processedData, MAX_POINTS_DETAILED);
-        dataCache.signals[cacheKey] = downsampledData;
-        
-        // Store expanded dataset for future use
-        dataCache.expandedSignals[`${trackId}_${startTime}_${endTime}`] = processedData;
-        
-        hideLoadingIndicator();
-        resolve(downsampledData);
-      } catch (error) {
-        console.error("Error generating signal data:", error);
-        hideLoadingIndicator();
-        // Still resolve with default data rather than rejecting
-        resolve(generateDefaultData(startTime, endTime));
+  // Fetch the CSV data from the API (the API URL cannot take parameters, so we load all and then filter)
+  const url = `https://api.vitaldb.net/${trackId}`;
+  const fetchDataPromise = d3.csv(url, d3.autoType)
+    .then(rawData => {
+      if (!rawData || rawData.length === 0) {
+        throw new Error('No data returned from API');
       }
-    }, 500); // Simulate network delay
-  });
+      
+      // Determine which column is time and which one is the signal value.
+      // Assumes the time column is named "Time" (case-insensitive) and the other column is the signal.
+      const keys = Object.keys(rawData[0]);
+      const timeKey = keys.find(k => k.toLowerCase() === 'time') || keys[0];
+      const valueKey = keys.find(k => k !== timeKey);
+      
+      let filteredData;
+      if (filter_time){
+        // Filter the data by the provided time range
+        filteredData= rawData.filter(d => d[timeKey] >= startTime && d[timeKey] <= endTime);
+      }else{
+        filteredData = rawData;
+      } 
+      
+      
+      // Map data to the expected output format.
+      // Here, minValue and maxValue are set equal to the signal value.
+      const processedData = filteredData.map(d => ({
+        time: d[timeKey],
+        value: d[valueKey],
+        minValue: d[valueKey],
+        maxValue: d[valueKey]
+      }));
+      
+      // Downsample the data if needed
+      const downsampledData = downsampleData(processedData, MAX_POINTS_DETAILED);
+      
+      // Cache the results
+      dataCache.signals[cacheKey] = downsampledData;
+      dataCache.expandedSignals[`${trackId}_${startTime}_${endTime}`] = processedData;
+      
+      hideLoadingIndicator();
+      return downsampledData;
+    })
+    .catch(error => {
+      console.error("Error fetching signal data:", error);
+      hideLoadingIndicator();
+      // Resolve with default data instead of rejecting
+      return generateDefaultData(startTime, endTime);
+    });
   
-  // Store promise in activeRequests
-  activeRequests.set(cacheKey, simulateDataPromise);
-  
-  // Add a finally handler to clean up
-  simulateDataPromise.finally(() => {
+  // Store promise in activeRequests and clean it up when done
+  activeRequests.set(cacheKey, fetchDataPromise);
+  fetchDataPromise.finally(() => {
     activeRequests.delete(cacheKey);
   });
   
-  return simulateDataPromise;
+  return fetchDataPromise;
 }
+
 
 // Helper function to generate default data for visualization when no real data is available
 function generateDefaultData(startTime = 0, endTime = 1000) {
