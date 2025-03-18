@@ -2769,7 +2769,7 @@ function highlightAnomalyInList(time) {
             item.classList.remove("highlighted");
             item.classList.remove("disable-hover");
             delete item._removeTimeout;
-          }, 800);
+          }, 300);
         });
       }, 800);
     }
