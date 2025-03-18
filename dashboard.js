@@ -2757,7 +2757,6 @@ function highlightAnomalyInList(time) {
   if (playing) return;
   const items = document.querySelectorAll(".anomaly-item");
 
-  // 移除所有项的 mouseover 和 mouseout 事件监听器
   items.forEach(item => {
     if (item._mouseOverHandler) {
       item.removeEventListener("mouseover", item._mouseOverHandler);
@@ -2780,7 +2779,6 @@ function highlightAnomalyInList(time) {
           item.classList.add("highlighted");
           item._removeTimeout = setTimeout(() => {
             item.classList.remove("highlighted");
-            // 高亮结束后，重新为所有项添加事件监听器
             items.forEach(item => {
               if (item._mouseOverHandler) {
                 item.addEventListener("mouseover", item._mouseOverHandler);
