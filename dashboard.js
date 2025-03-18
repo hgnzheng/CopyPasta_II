@@ -189,15 +189,18 @@ function updateAnomaliesList(anomalies, caseId) {
     `;
 
     // Add event listeners
-    anomalyItem.addEventListener("mouseover", () => {
+    anomalyItem._mouseOverHandler = function (event) {
       highlightAnomalyMarker(anomaly.time);
       anomalyItem.style.borderColor = anomaly.baseColor;
-    });
-
-    anomalyItem.addEventListener("mouseout", () => {
+    };
+    
+    anomalyItem._mouseOutHandler = function (event) {
       unhighlightAnomalyMarker();
       anomalyItem.style.borderColor = "";
-    });
+    };
+
+    anomalyItem.addEventListener("mouseover", anomalyItem._mouseOverHandler);
+    anomalyItem.addEventListener("mouseout", anomalyItem._mouseOutHandler);
 
     anomalyItem.querySelector(".analyze-btn").addEventListener("click", () => {
       const operationType = document.getElementById("operationCategory").value;
@@ -2750,27 +2753,20 @@ function waitUntilCentered(item, callback) {
   requestAnimationFrame(check);
 }
 
-function anomalyMouseOverHandler(event) {
-  const anomaly = event.currentTarget.__anomalyData;
-  highlightAnomalyMarker(anomaly.time);
-  event.currentTarget.style.borderColor = anomaly.baseColor;
-}
-
-function anomalyMouseOutHandler(event) {
-  unhighlightAnomalyMarker();
-  event.currentTarget.style.borderColor = "";
-}
-
 function highlightAnomalyInList(time) {
   if (playing) return;
   const items = document.querySelectorAll(".anomaly-item");
-  
-  // 禁用所有项的 mouseover 和 mouseout 事件监听器
+
+  // 移除所有项的 mouseover 和 mouseout 事件监听器
   items.forEach(item => {
-    item.removeEventListener("mouseover", anomalyMouseOverHandler);
-    item.removeEventListener("mouseout", anomalyMouseOutHandler);
+    if (item._mouseOverHandler) {
+      item.removeEventListener("mouseover", item._mouseOverHandler);
+    }
+    if (item._mouseOutHandler) {
+      item.removeEventListener("mouseout", item._mouseOutHandler);
+    }
   });
-  
+
   items.forEach((item) => {
     if (parseFloat(item.dataset.time) === time) {
       if (item._removeTimeout) {
@@ -2784,9 +2780,14 @@ function highlightAnomalyInList(time) {
           item.classList.add("highlighted");
           item._removeTimeout = setTimeout(() => {
             item.classList.remove("highlighted");
+            // 高亮结束后，重新为所有项添加事件监听器
             items.forEach(item => {
-              item.addEventListener("mouseover", anomalyMouseOverHandler);
-              item.addEventListener("mouseout", anomalyMouseOutHandler);
+              if (item._mouseOverHandler) {
+                item.addEventListener("mouseover", item._mouseOverHandler);
+              }
+              if (item._mouseOutHandler) {
+                item.addEventListener("mouseout", item._mouseOutHandler);
+              }
             });
             delete item._removeTimeout;
           }, 300);
@@ -2795,6 +2796,7 @@ function highlightAnomalyInList(time) {
     }
   });
 }
+
 
 
 
