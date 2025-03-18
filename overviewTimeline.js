@@ -289,7 +289,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function brushEnded({ selection, sourceEvent }) {
-      // 重置刷子状态
       window.isActiveBrushing = false;
       
       const fullDomain = xMini.domain();
@@ -299,7 +298,6 @@ document.addEventListener("DOMContentLoaded", () => {
         if (sourceEvent) {
           const [mouseX] = d3.pointer(sourceEvent, svgMini.node());
           lastMouseUpX = xMini.invert(mouseX);
-          console.log("最后鼠标松开时的x数据值:", lastMouseUpX);
         }
         const currentXValue = (lastMouseUpX !== undefined)
           ? lastMouseUpX

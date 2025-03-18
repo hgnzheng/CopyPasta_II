@@ -2766,7 +2766,6 @@ function initializeHoverOverlay(svg) {
   const adjustedWidth = width - margin.left - margin.right;
   const adjustedHeight = height - margin.top - margin.bottom;
 
-  // 如果 hover overlay 不存在，则创建
   let overlay = svg.select(".hover-overlay");
   if (overlay.empty()) {
     overlay = svg.append("rect")
@@ -2787,19 +2786,36 @@ function initializeHoverOverlay(svg) {
             const dPrev = window.currentTrackData[index - 1];
             dClosest = (hoveredTime - dPrev.time) < (dClosest.time - hoveredTime) ? dPrev : dClosest;
           }
+          
           svg.select(".hover-line")
             .attr("x1", mouseX)
             .attr("x2", mouseX)
             .style("opacity", 1);
-
+          
+          let tooltipContent = `
+            <div class="tooltip-content">
+              <div class="tooltip-header">
+                Time: <div class="tooltip-text">${formatTime(dClosest.time)}</div>
+              </div>
+              <div class="tooltip-text">Value: ${dClosest.value.toFixed(1)}</div>
+          `;
+          
+          const maDropdown = document.getElementById("MAdropdownMenu");
+          if (maDropdown) {
+            const maSelection = maDropdown.value;
+            if (maSelection === "1min" || maSelection === "both") {
+              tooltipContent += `<div class="tooltip-text">1-min MA: ${dClosest.ma1min !== undefined ? dClosest.ma1min.toFixed(1) : "N/A"}</div>`;
+            }
+            if (maSelection === "5min" || maSelection === "both") {
+              tooltipContent += `<div class="tooltip-text">5-min MA: ${dClosest.ma5min !== undefined ? dClosest.ma5min.toFixed(1) : "N/A"}</div>`;
+            }
+          }
+          
+          tooltipContent += `</div>`;
+          
           tooltip.style("left", (event.pageX + 10) + "px")
             .style("top", (event.pageY - 28) + "px")
-            .html(`
-              <div class="tooltip-content">
-                <div class="tooltip-header">Time: <div class="tooltip-text">${formatTime(dClosest.time)}</div></div>
-                <div class="tooltip-text">Value: ${dClosest.value.toFixed(1)}</div>
-              </div>
-            `)
+            .html(tooltipContent)
             .style("opacity", 0.9);
         }
       })
@@ -2820,6 +2836,7 @@ function initializeHoverOverlay(svg) {
       .attr("stroke-dasharray", "3,3");
   }
 }
+
 
 
 
