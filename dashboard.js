@@ -603,7 +603,7 @@ function checkForAnomalies() {
           .attr("stroke-width", 2);
 
         // Remove highlight from anomalies list
-        removeAnomalyHighlight();
+        // removeAnomalyHighlight();
       });
 
       marker.on("click", function () {
@@ -1971,7 +1971,7 @@ function updateChartElements() {
           .attr("stroke-width", 2);
 
         // Remove highlight from anomalies list
-        removeAnomalyHighlight();
+        // removeAnomalyHighlight();
       })
       .on("click", function (event, d) {
         // Navigate to crisis analysis page
@@ -2736,25 +2736,48 @@ function unhighlightAnomalyMarker() {
     .attr("opacity", 0.5);
 }
 
-// Helper function to highlight anomaly in list
+function waitUntilCentered(item, callback) {
+  function check() {
+    const rect = item.getBoundingClientRect();
+    const itemCenter = rect.top + rect.height / 2;
+    const viewportCenter = window.innerHeight / 2;
+    if (Math.abs(itemCenter - viewportCenter) < 20) {
+      callback();
+    } else {
+      requestAnimationFrame(check);
+    }
+  }
+  requestAnimationFrame(check);
+}
+
 function highlightAnomalyInList(time) {
   if (playing) return;
-
   const items = document.querySelectorAll(".anomaly-item");
   items.forEach((item) => {
     if (parseFloat(item.dataset.time) === time) {
-      item.classList.add("highlighted");
-      // item.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      item.classList.add("disable-hover");
+      if (item._removeTimeout) {
+        clearTimeout(item._removeTimeout);
+        delete item._removeTimeout;
+      }
+      item._scrollTimeout = setTimeout(() => {
+        item.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" });
+        delete item._scrollTimeout;
+        waitUntilCentered(item, () => {
+          item.classList.add("highlighted");
+          item._removeTimeout = setTimeout(() => {
+            item.classList.remove("highlighted");
+            item.classList.remove("disable-hover");
+            delete item._removeTimeout;
+          }, 800);
+        });
+      }, 800);
     }
   });
 }
 
-// Helper function to remove highlight from anomaly list
-function removeAnomalyHighlight() {
-  document.querySelectorAll(".anomaly-item").forEach((item) => {
-    item.classList.remove("highlighted");
-  });
-}
+
+
 
 function initializeHoverOverlay(svg) {
   const chartContainer = document.getElementById("chart");
