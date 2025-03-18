@@ -136,21 +136,21 @@ document.addEventListener("DOMContentLoaded", () => {
       .selectAll("text")
       .style("font-size", "8px");
 
-    // If we have min/max values, show a range area
-    if (overviewData.length > 0 && 'minValue' in overviewData[0]) {
-      const areaGenerator = d3.area()
-        .x(d => xMini(d.time))
-        .y0(d => yMini(d.minValue))
-        .y1(d => yMini(d.maxValue))
-        .curve(d3.curveMonotoneX);
+    // // If we have min/max values, show a range area
+    // if (overviewData.length > 0 && 'minValue' in overviewData[0]) {
+    //   const areaGenerator = d3.area()
+    //     .x(d => xMini(d.time))
+    //     .y0(d => yMini(d.minValue))
+    //     .y1(d => yMini(d.maxValue))
+    //     .curve(d3.curveMonotoneX);
         
-      overviewArea = svgMini
-        .append("path")
-        .datum(overviewData)
-        .attr("class", "mini-area")
-        .attr("fill", colors.dataRange)
-        .attr("d", areaGenerator);
-    }
+    //   overviewArea = svgMini
+    //     .append("path")
+    //     .datum(overviewData)
+    //     .attr("class", "mini-area")
+    //     .attr("fill", colors.dataRange)
+    //     .attr("d", areaGenerator);
+    // }
 
     // Create path for line
     const line = d3.line()
@@ -288,14 +288,40 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    function brushEnded({ selection }) {
-      // Reset the active brushing flag
+    function brushEnded({ selection, sourceEvent }) {
+      // 重置刷子状态
       window.isActiveBrushing = false;
       
+      const fullDomain = xMini.domain();
+      let lastMouseUpX;
+      
       if (!selection) {
-        // If the brush was cleared, restore the full domain
-        if (typeof setMainChartDomain === 'function') {
-          setMainChartDomain(timeExtent);
+        if (sourceEvent) {
+          const [mouseX] = d3.pointer(sourceEvent, svgMini.node());
+          lastMouseUpX = xMini.invert(mouseX);
+          console.log("最后鼠标松开时的x数据值:", lastMouseUpX);
+        }
+        const currentXValue = (lastMouseUpX !== undefined)
+          ? lastMouseUpX
+          : (fullDomain[0] + fullDomain[1]) / 2;
+          
+        const adj = (fullDomain[1] - fullDomain[0]) / 10;
+        let newStart = currentXValue - adj;
+        let newEnd = currentXValue + adj;
+        
+        if (newStart < fullDomain[0]) {
+          newStart = fullDomain[0];
+          newEnd = newStart + 2 * adj;
+        }
+        if (newEnd > fullDomain[1]) {
+          newEnd = fullDomain[1];
+          newStart = newEnd - 2 * adj;
+        }
+        
+        brushG.call(brush.move, [xMini(newStart), xMini(newEnd)]);
+        
+        if (typeof setMainChartDomain === "function") {
+          setMainChartDomain([newStart, newEnd]);
         }
         return;
       }
@@ -405,21 +431,6 @@ document.addEventListener("DOMContentLoaded", () => {
           .style("opacity", 0)
           .remove();
       })
-      .on("click", function(event, d) {
-        // Focus main chart on this anomaly
-        if (window.currentXScale && typeof setMainChartDomain === 'function') {
-          const focusWindow = 60; // 60-second window
-          const start = Math.max(d.time - focusWindow/2, xMini.domain()[0]);
-          const end = Math.min(d.time + focusWindow/2, xMini.domain()[1]);
-          setMainChartDomain([start, end]);
-          
-          // Update current time
-          if (typeof currentTime !== 'undefined') {
-            window.currentTime = d.time;
-            window.updatePlayback();
-          }
-        }
-      });
   }
 
   // Make updateAnomalyMarkers available globally
